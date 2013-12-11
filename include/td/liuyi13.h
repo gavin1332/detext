@@ -21,6 +21,7 @@ class LiuYi13 : public ConnCompBased {
  private:
   void ReleaseCCList(std::list<ConnComp*>* cclist);
 
+  // the cclist is in y1 increasing order
   void ParseResp(const cv::Mat& gray, const cv::Mat* resp, cv::Mat* mask,
                  std::list<ConnComp*>* cclist);
 

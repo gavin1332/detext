@@ -15,14 +15,16 @@
 #include "evaluate/icdar2005.h"
 #include "evaluate/icdar2011.h"
 #include "td/liuyi13.h"
-#include "td/frangi98.h"
+//#include "td/frangi98.h"
 
 using namespace std;
 using namespace cv;
 
 namespace dtxt {
+
+extern bool EVALUATE_PRECOMPUTED_RESULT_;
 extern bool PRINT_LOG_;
-extern bool SHOW_ORIGIN_RESULT_;
+extern bool SHOW_PRECOMPUTED_RESULT_;
 extern bool SHOW_GRAY_;
 extern bool SHOW_RESPONSE_;
 extern bool SHOW_GROUP_STEP_;
@@ -33,17 +35,19 @@ extern bool SPLIT_CHAR_LINE_;
 
 extern double THRESHOLD_;
 
-bool PRINT_LOG_ = !true;
-bool SHOW_GRAY_ = !true;
-bool SHOW_ORIGIN_RESULT_ = !true;
+bool EVALUATE_PRECOMPUTED_RESULT_ = !true;
+bool PRINT_LOG_ = true;
+bool SHOW_GRAY_ = true;
+bool SHOW_PRECOMPUTED_RESULT_ = true;
 bool SHOW_RESPONSE_ = !true;
 bool SHOW_GROUP_STEP_ = !true;
-bool SHOW_GROUPED_RESULT_ = !true;
-bool SHOW_FINAL_ = !true;
+bool SHOW_GROUPED_RESULT_ = true;
+bool SHOW_FINAL_ = true;
 bool SPLIT_CHAR_LINE_ = true;
 bool SAVE_RESULT_INTERACTION_ = !true;
 
 double THRESHOLD_;
+
 }
 
 using namespace dtxt;
@@ -93,6 +97,10 @@ void ReleaseList(list<TextLine*>* tllist) {
   tllist->clear();
 }
 
+void EvaluatePrecomputedResult() {
+
+}
+
 void PrintProgress(int count, int size) {
   cout << "Progress:" << (float) count * 100 / size << "%" << endl;
 }
@@ -100,7 +108,7 @@ void PrintProgress(int count, int size) {
 #if 1
 
 int main(int argc, char** argv) {
-  const string base_dir = "/home/liuyi/project/cpp/testdata/scene/2011";
+  const string base_dir = "/home/gavin/workspace/cpp/data/scene/2011";
   ICDAR* icdar = new ICDAR2011(base_dir);
 
   const string data_dir = icdar->test_data_dir();
@@ -116,18 +124,32 @@ int main(int argc, char** argv) {
   const int file_count_total = filename_vec.size();
   double exec_time = (double) getTickCount();
   for (; it != filename_vec.end(); ++it, ++count) {
-    if (it->compare("101.jpg") < 0) {
-      continue;
-    }
-    THRESHOLD_ = 6;
-
     const string img_path = data_dir + "/" + *it;
     TestUtils::Print(img_path);
     PrintProgress(count, file_count_total);
+    const list<TextLine*>& T_list = icdar->RetrieveTList(img_path);
+
+    if (EVALUATE_PRECOMPUTED_RESULT_) {
+      vector<Rect> rect_vec;
+      ReadRects(img_path, &rect_vec);
+      list<TextLine*> E_list;
+      vector<Rect>::iterator itr = rect_vec.begin();
+      for (; itr != rect_vec.end(); ++itr) {
+        E_list.push_back(
+            new TextLine(itr->x, itr->y, itr->x + itr->width - 1,
+                         itr->y + itr->height - 1));
+      }
+      evaluator.RecordMatch(E_list, T_list);
+      continue;
+    }
+
+    if (it->compare("107.jpg") < 0) {
+      continue;
+    }
+    THRESHOLD_ = 3;
 
     Mat img = imread(img_path, CV_LOAD_IMAGE_COLOR);
-
-    if (SHOW_ORIGIN_RESULT_) {
+    if (SHOW_PRECOMPUTED_RESULT_) {
       vector<Rect> rect_vec;
       ReadRects(img_path, &rect_vec);
       if (TestUtils::ShowRects(img, rect_vec, Scalar(255, 255, 255))) {
@@ -146,7 +168,6 @@ int main(int argc, char** argv) {
 //    if (!success) continue;
 //    img = img(rect);
 
-    const list<TextLine*>& T_list = icdar->RetrieveTList(img_path);
     list<TextLine*>* E_list = new list<TextLine*>;
     detector.Detect(img, E_list);
     if (zoom < 1) {
@@ -159,12 +180,12 @@ int main(int argc, char** argv) {
       delete E_list;
       E_list = new_E_list;
     }
-
     evaluator.RecordMatch(*E_list, T_list);
 
     if (SAVE_RESULT_INTERACTION_) {
       cout << "Save result? [y/N]? ";
-      char save = getchar();
+      char save;
+      cin >> save;
       if (save == 'y' || save == 'Y') {
         SaveEList(*E_list, img_path);
         TestUtils::Print("Saved estimated rectangles");

@@ -88,22 +88,20 @@ int CharLine::MedianHeight() const {
   return hvec[n];
 }
 
-int CharLine::MedianInterval() const {
-  if (clist_.size() < 2) {
-    return clist_.front()->Width() / 2;
-  }
-
+void CharLine::CalcIntervalMeanAndStdDev(int* median, double* mean, double* stddev) const {
   vector<int> int_vec;
   CharConstItr end = clist_.end();
   CharConstItr ait = clist_.begin();
   CharConstItr bit = ait;
   for (++bit; bit != end; ait = bit++) {
-    int interval = (*bit)->x1() - (*ait)->x2();
+    int interval = max(0, (*bit)->x1() - (*ait)->x2());
     int_vec.push_back(interval);
   }
   size_t n = (int_vec.size() - 1) / 2;
   nth_element(int_vec.begin(), int_vec.begin() + n, int_vec.end());
-  return int_vec[n];
+  *median = int_vec[n];
+
+  MathUtils::MeanAndStdDev(int_vec, mean, stddev);
 }
 
 void CharLine::MedianY12(int* my1, int* my2) const {

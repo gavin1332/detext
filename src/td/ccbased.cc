@@ -61,13 +61,48 @@ void AttrEnCharLine::AddChar(EnChar* ch) {
   CharLine::AddChar(ch);
 }
 
+bool AttrEnCharLine::AreMostUpright() const {
+  int upright_num = 0;
+  for (CharConstItr itr = clist().begin(); itr != clist().end(); ++itr) {
+    if ((*itr)->CCNum() == 1
+        && static_cast<AttrConnComp*>(static_cast<EnChar*>(*itr)->GetCC())
+            ->upright()) {
+      ++upright_num;
+    }
+  }
+  return upright_num > CharNum() * 3 / 4;
+}
+
+bool AttrEnCharLine::CheckValidation() {
+  if (!valid()) {
+    return false;
+  } else if (CharNum() <= 2) {
+    TestUtils::Log("too less ccs in one tr");
+    Invalidate();
+    return false;
+  } else if (AspectRatio() < 1.2) {
+    TestUtils::Log("too small aspect ratio");
+    Invalidate();
+    return false;
+  } else if (Width() < CharNum() * max_char_w_ * 0.75) {
+    TestUtils::Log("too small width");
+    Invalidate();
+    return false;
+  } else if (AreMostUpright ()) {
+    TestUtils::Log("most are upright");
+    Invalidate();
+    return false;
+  }
+  return true;
+}
+
 Polarity ConnCompBased::polarity_;
 
 void ConnCompBased::GroupConnComp(const Mat& resp_mask, list<ConnComp*>* cclist,
                                   list<TextLine*>* tllist) {
   extern bool SHOW_GROUP_STEP_;
 
-  cclist->sort(CompareY1);
+//  cclist->sort(CompareY1);
 
   CCItr begin = cclist->begin();
   CCItr end = cclist->end();
@@ -76,7 +111,6 @@ void ConnCompBased::GroupConnComp(const Mat& resp_mask, list<ConnComp*>* cclist,
   if (SHOW_GROUP_STEP_) {
     TestUtils::ShowImage(map);
   }
-  const uchar kLooseThres = 35;
   bool show_steps = SHOW_GROUP_STEP_;
   vector<CCItr> candidates;
   CCItr ccbase = begin;
@@ -94,7 +128,7 @@ void ConnCompBased::GroupConnComp(const Mat& resp_mask, list<ConnComp*>* cclist,
     while (char_added && outer != end) {
       char_added = false;
       candidates.clear();
-      FindSortedCandidates(tl, outer, end, &candidates);
+      FindIntervalSortedCandidates(tl, outer, end, &candidates);
       if (candidates.empty()) {
         break;
       }
@@ -111,25 +145,19 @@ void ConnCompBased::GroupConnComp(const Mat& resp_mask, list<ConnComp*>* cclist,
         }
 
         AttrEnChar* ch = new AttrEnChar(**inner);
-        uchar median_gray_diff = abs(
-            ch->median_gray() - tl->median_gray_mean());
-        //      TestUtils::Log("median_gray_diff", (int) median_gray_diff);
-        if (tl->Contains(ch)) {
-          // TODO: change to use EnChar::Style
-          if (median_gray_diff >= kLooseThres) {
-            delete ch;
-            TestUtils::Log("contained but without consistent property");
-            continue;
-          }
-        }
-        // Must be the last step, for it will change the tl's property
-        if (!CheckInOneLine(tl, ch)) {
+        if (!CheckStyle(tl, ch)) {
           delete ch;
-          TestUtils::Log("not in a line");
+          TestUtils::Log("conflicted char style");
+
+          // TODO: Refine
+          if ((tl->style() != EnChar::STYLEa && tl->CharNum() <= 3)
+              || (tl->style() == EnChar::STYLEf && tl->CharNum() <= 4)) {
+            tl->Invalidate();
+            break;
+          }
           continue;
         }
 
-        // TODO: 添加根据Text line style过滤的逻辑
         TestUtils::Log("Add the ch");
         tl->AddChar(ch);
         (**inner)->Invalidate();
@@ -142,17 +170,12 @@ void ConnCompBased::GroupConnComp(const Mat& resp_mask, list<ConnComp*>* cclist,
       }
     }
 
-    if (tl->CharNum() <= 2) {
-      TestUtils::Log("too less ccs in one tr");
+    // TODO: 添加根据Text line style过滤的逻辑
+    if (!tl->CheckValidation()) {
       delete tl;
-    } else if (tl->AspectRatio() < 1.2) {
-      TestUtils::Log("too small aspect ratio");
-      delete tl;
-    } else if (MostAreUpright(tl)) {
-      TestUtils::Log("most are upright");
-      delete tl;
-    } else if (tl->x1() < 5 || tl->x2() > resp_mask.cols - 5 || tl->y1() < 10
+    }else if (tl->x1() < 5 || tl->x2() > resp_mask.cols - 5 || tl->y1() < 10
         || tl->y2() > resp_mask.rows - 10) {
+      // TODO: Check the necessary of this condition
       TestUtils::Log("ignore lines on the edges");
       delete tl;
     } else {
@@ -179,8 +202,9 @@ void ConnCompBased::PrintTextLineStyle(AttrEnCharLine* tl) {
   cout << endl;
 }
 
-void ConnCompBased::FindSortedCandidates(AttrEnCharLine* tl, CCItr begin,
-                                         CCItr end, vector<CCItr>* candidates) {
+void ConnCompBased::FindIntervalSortedCandidates(AttrEnCharLine* tl,
+                                                 CCItr begin, CCItr end,
+                                                 vector<CCItr>* candidates) {
   for (; begin != end; ++begin) {
     if (!(*begin)->valid()) {
       continue;
@@ -188,7 +212,7 @@ void ConnCompBased::FindSortedCandidates(AttrEnCharLine* tl, CCItr begin,
     if (!IsInSearchScope(tl, *begin)) {
       break;
     }
-    if (tl->CalcWidthInterval(*begin) > (*begin)->Height() / 1.5) {
+    if (tl->CalcInterval(*begin) > (*begin)->Height() / 1.5) {
       continue;
     }
     candidates->push_back(begin);
@@ -204,21 +228,7 @@ void ConnCompBased::FindSortedCandidates(AttrEnCharLine* tl, CCItr begin,
   });
 }
 
-bool ConnCompBased::MostAreUpright(const CharLine* tl) const {
-  int upright_num = 0;
-  for (CharConstItr itr = tl->clist().begin(); itr != tl->clist().end();
-      ++itr) {
-    if ((*itr)->CCNum() == 1
-        && static_cast<AttrConnComp*>(static_cast<EnChar*>(*itr)->GetCC())
-            ->upright()) {
-      ++upright_num;
-    }
-  }
-  int total = tl->clist().size();
-  return upright_num > total * 3 / 4;
-}
-
-bool ConnCompBased::CheckInOneLine(CharLine* cl, Char* ch) {
+bool ConnCompBased::CheckStyle(CharLine* cl, Char* ch) {
   AttrEnCharLine* ch_line = static_cast<AttrEnCharLine*>(cl);
   const EnChar* neib = static_cast<const EnChar*>(ch_line->NeighborChar(ch));
   EnChar* ench = static_cast<EnChar*>(ch);
@@ -410,15 +420,12 @@ void ConnCompBased::SplitCharLine(list<TextLine*>* tllist) {
       continue;
     }
 
-    int median_interval = cl->MedianInterval();
-    int median_width = cl->MedianWidth();
-    float wthres;
+    int median;
+    double mean, stddev;
     // OPTIMIZE
-    if (median_interval < 2) {
-      wthres = (float) median_width / 2;
-    } else {
-      wthres = median_interval + median_width * 0.5f;
-    }
+    cl->CalcIntervalMeanAndStdDev(&median, &mean, &stddev);
+    const double kIntervalThres = mean + 2 * stddev;
+    TestUtils::Log("split width threshold", kIntervalThres);
 
     const list<Char*>& clist = cl->clist();
     CharConstItr begin = clist.begin();
@@ -428,7 +435,7 @@ void ConnCompBased::SplitCharLine(list<TextLine*>* tllist) {
     CharConstItr bit = ait;
     for (++bit; bit != end; ait = bit++) {
       int interval = (*bit)->x1() - (*ait)->x2();
-      if (interval > wthres) {
+      if (interval > kIntervalThres) {
         tllist->insert(itr, CreateAttrEnCharLine(begin, bit));
         begin = bit;
       }

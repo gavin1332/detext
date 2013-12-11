@@ -85,12 +85,23 @@ class AttrEnCharLine : public CharLine {
   AttrEnCharLine(Polarity polarity)
       : CharLine(),
         polarity_(polarity),
+        valid_(true),
         median_gray_mean_(0),
-        style_(EnChar::STYLEa) {
+        style_(EnChar::STYLEa),
+        top_margin_(kUndifined),
+        middle_height_(kUndifined),
+        bottom_margin_(kUndifined) {
   }
 
   Polarity polarity() const {
     return polarity_;
+  }
+
+  bool valid() const {
+    return valid_;
+  }
+  void Invalidate() {
+    valid_ = false;
   }
 
   uchar median_gray_mean() const {
@@ -104,10 +115,20 @@ class AttrEnCharLine : public CharLine {
 
   void AddChar(EnChar* ch);
 
- protected:
+  bool CheckValidation();
+
+ private:
+  const static int kUndifined = -1;
   const Polarity polarity_;
+  bool valid_;
   uchar median_gray_mean_;
+
   EnChar::Style style_;
+  int top_margin_;
+  int middle_height_;
+  int bottom_margin_;
+
+  bool AreMostUpright() const;
 
 };
 
@@ -143,9 +164,7 @@ class ConnCompBased : public TextDetector {
     return ch->y1() < tr->y2() - tr->max_char_h() / 3;
   }
 
-  bool CheckInOneLine(CharLine* tr, Char* ch);
-
-  bool MostAreUpright(const CharLine* tl) const;
+  bool CheckStyle(CharLine* tr, Char* ch);
 
   bool MatchY1(const Region* r1, const Region* r2) const {
     return abs(r1->y1() - r2->y1()) < std::min(r1->Height(), r2->Height()) / 4.7;
@@ -157,7 +176,7 @@ class ConnCompBased : public TextDetector {
 
   bool IsOverlapped(TextLine* tl1, TextLine* tl2) const;
 
-  void FindSortedCandidates(AttrEnCharLine* tl, CCItr begin, CCItr end,
+  void FindIntervalSortedCandidates(AttrEnCharLine* tl, CCItr begin, CCItr end,
                             std::vector<CCItr>* candidates);
 
   void PrintTextLineStyle(AttrEnCharLine* tl);

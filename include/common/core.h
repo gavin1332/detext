@@ -232,7 +232,8 @@ class EnChar : public Char {
     STYLEa = MIDDLE_LINE,
     STYLEh = MIDDLE_LINE | TOP_MARGIN,
     STYLEy = MIDDLE_LINE | BOTTOM_MARGIN,
-    STYLEf = MIDDLE_LINE | TOP_MARGIN | BOTTOM_MARGIN
+    STYLEf = MIDDLE_LINE | TOP_MARGIN | BOTTOM_MARGIN,
+    UNDIFINED = 0
   };
 
   static Style ParseStyle(int code) {
@@ -365,11 +366,11 @@ class CharLine : public TextLine {
 
   int MedianHeight() const;
 
-  int MedianInterval() const;
+  void CalcIntervalMeanAndStdDev(int* median, double* mean, double* stddev) const;
 
   void MedianY12(int* my1, int* my2) const;
 
-  int CalcWidthInterval(const Region* cc) const {
+  int CalcInterval(const Region* cc) const {
     if (cc->x2() < x1() || cc->x1() > x2()) {
       return std::min(abs(x1() - cc->x2()), abs(x2() - cc->x1()));
     } else {
@@ -391,11 +392,6 @@ class CharLine : public TextLine {
   }
   const Char* BackChar() const {
     return clist_.back();
-  }
-
-  // TODO: check
-  bool CheckValidation() {
-    return Width() > CharNum() * max_char_w_ * 0.75;
   }
 
   virtual void AddChar(Char* ch);

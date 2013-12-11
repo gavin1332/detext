@@ -89,23 +89,23 @@ void LiuYi13::ParseResp(const Mat& gray, const Mat* resp, Mat* resp_mask,
     TestUtils::ShowImage(mask[NEG]);
   }
 
-  const char kTmpFill = 1;
   for (int i = 0; i < 2; ++i) {
     MatIterator_<uchar> itr = mask[i].begin<uchar>();
     MatIterator_<uchar> end = mask[i].end<uchar>();
     for (; itr != end; ++itr) {
-      if (*itr != 255)
+      if (*itr != Const::kFG) {
         continue;
+      }
 
       Rect rect;
-      floodFill(mask[i], itr.pos(), kTmpFill, &rect, 0, 0, 8);
+      floodFill(mask[i], itr.pos(), Const::kMark, &rect, 0, 0, 8);
       ConnComp* cc = new AttrConnComp();
       for (int y = 0; y < rect.height; ++y) {
         uchar* mask_ptr = mask[i].ptr<uchar>(rect.y + y, rect.x);
         const uchar* gray_ptr = gray.ptr<uchar>(rect.y + y, rect.x);
         const double* resp_ptr = resp[i].ptr<double>(rect.y + y, rect.x);
         for (int x = 0; x < rect.width; ++x) {
-          if (mask_ptr[x] == kTmpFill) {
+          if (mask_ptr[x] == Const::kMark) {
             cc->AddPixel(
                 new AttrPix(Point(rect.x + x, rect.y + y), gray_ptr[x],
                             resp_ptr[x]));
