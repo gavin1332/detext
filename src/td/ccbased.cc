@@ -175,7 +175,7 @@ void ConnCompBased::GroupConnComp(const Mat& resp_mask, list<ConnComp*>* cclist,
       delete tl;
     }else if (tl->x1() < 5 || tl->x2() > resp_mask.cols - 5 || tl->y1() < 10
         || tl->y2() > resp_mask.rows - 10) {
-      // TODO: Check the necessary of this condition
+      // TODO: Check the necessity of this condition
       TestUtils::Log("ignore lines on the edges");
       delete tl;
     } else {
