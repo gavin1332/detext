@@ -14,6 +14,7 @@ void LiuYi13::Detect(const cv::Mat& img, std::list<TextLine*>* tllist) {
   extern bool SHOW_RESPONSE_;
   extern bool SHOW_GROUPED_RESULT_;
   extern bool SHOW_FINAL_;
+  extern bool SPLIT_CHAR_LINE_;
 
   Mat gray;
   cvtColor(img, gray, CV_BGR2GRAY);
@@ -47,7 +48,10 @@ void LiuYi13::Detect(const cv::Mat& img, std::list<TextLine*>* tllist) {
   if (SHOW_GROUPED_RESULT_) {
     DispRects(gray, *tllist, Scalar(255, 255, 255));
   }
-//  SplitCharLine(tllist);
+
+  if (SPLIT_CHAR_LINE_) {
+    SplitCharLine(tllist);
+  }
 
   ReleaseCCList(cclist);
 

@@ -22,22 +22,26 @@ using namespace cv;
 
 namespace dtxt {
 extern bool PRINT_LOG_;
+extern bool SHOW_ORIGIN_RESULT_;
 extern bool SHOW_GRAY_;
 extern bool SHOW_RESPONSE_;
 extern bool SHOW_GROUP_STEP_;
 extern bool SHOW_GROUPED_RESULT_;
 extern bool SHOW_FINAL_;
 extern bool SAVE_RESULT_INTERACTION_;
+extern bool SPLIT_CHAR_LINE_;
 
 extern double THRESHOLD_;
 
-bool PRINT_LOG_ = true;
-bool SHOW_GRAY_ = true;
+bool PRINT_LOG_ = !true;
+bool SHOW_GRAY_ = !true;
+bool SHOW_ORIGIN_RESULT_ = !true;
 bool SHOW_RESPONSE_ = !true;
-bool SHOW_GROUP_STEP_ = true;
-bool SHOW_GROUPED_RESULT_ = true;
-bool SHOW_FINAL_ = true;
-bool SAVE_RESULT_INTERACTION_ = true;
+bool SHOW_GROUP_STEP_ = !true;
+bool SHOW_GROUPED_RESULT_ = !true;
+bool SHOW_FINAL_ = !true;
+bool SPLIT_CHAR_LINE_ = true;
+bool SAVE_RESULT_INTERACTION_ = !true;
 
 double THRESHOLD_;
 }
@@ -115,7 +119,7 @@ int main(int argc, char** argv) {
     if (it->compare("101.jpg") < 0) {
       continue;
     }
-    THRESHOLD_ = 2.5;
+    THRESHOLD_ = 6;
 
     const string img_path = data_dir + "/" + *it;
     TestUtils::Print(img_path);
@@ -123,11 +127,12 @@ int main(int argc, char** argv) {
 
     Mat img = imread(img_path, CV_LOAD_IMAGE_COLOR);
 
-    vector<Rect> rect_vec;
-    ReadRects(img_path, &rect_vec);
-    bool notified = TestUtils::ShowRects(img, rect_vec, Scalar(255, 255, 255));
-    if (notified) {
-      continue;
+    if (SHOW_ORIGIN_RESULT_) {
+      vector<Rect> rect_vec;
+      ReadRects(img_path, &rect_vec);
+      if (TestUtils::ShowRects(img, rect_vec, Scalar(255, 255, 255))) {
+        continue;
+      }
     }
 
     double zoom = 1;
