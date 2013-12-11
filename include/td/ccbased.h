@@ -4,7 +4,6 @@
 #include <string>
 #include <list>
 #include <cmath>
-#include <sstream>
 
 #include <opencv2/core/core.hpp>
 
@@ -39,22 +38,18 @@ class AttrConnComp : public ConnComp {
   AttrConnComp()
       : ConnComp(),
         median_gray_(0),
-        gray_stddev_(0.0),
-        upright_(false),
-        perimeter_(0) {
+        upright_(false) {
   }
   virtual ~AttrConnComp() {
   }
 
-  uchar median_gray() {
+  uchar median_gray() const {
     return median_gray_;
   }
 
-  bool upright() {
+  bool upright() const {
     return upright_;
   }
-
-  void CalcProperties();
 
   void CheckValidation();
 
@@ -62,11 +57,7 @@ class AttrConnComp : public ConnComp {
   static const int kCrossVarNum = 3;
 
   uchar median_gray_;
-  double gray_stddev_;
   bool upright_;
-  int perimeter_;
-  int hcross[kCrossVarNum];
-  int vcross[kCrossVarNum];
 
   static bool PixGrayCompare(const Pixel* p1, const Pixel* p2) {
     return static_cast<const AttrPix*>(p1)->gray_value()
@@ -75,56 +66,68 @@ class AttrConnComp : public ConnComp {
 
   void CalcMedianGray();
 
-  void CalcGrayStdDev();
+};
 
-  void CalcMaskProperties();
-
-  void BuildBorderedMask(cv::Mat* mask);
-
-  double gray_stddev() {
-    return gray_stddev_;
+class AttrEnChar : public EnChar {
+ public:
+  AttrEnChar(ConnComp* cc)
+      : EnChar(cc) {
   }
 
-  int TotalHCross() const {
-    return hcross[0] + hcross[1] + hcross[2];
-  }
-  int TotalVCross() const {
-    return vcross[0] + vcross[1] + vcross[2];
+  uchar median_gray() const {
+    return static_cast<const AttrConnComp*>(GetCC())->median_gray();
   }
 
 };
 
-class AttrCharLine : public CharLine {
+class AttrEnCharLine : public CharLine {
  public:
-  AttrCharLine()
+  AttrEnCharLine(Polarity polarity)
       : CharLine(),
-        max_cc_h_(0),
-        median_gray_mean_(0) {
+        polarity_(polarity),
+        median_gray_mean_(0),
+        style_(EnChar::STYLEa) {
   }
 
-  int max_cc_h() const {
-    return max_cc_h_;
+  Polarity polarity() const {
+    return polarity_;
   }
 
-  uchar median_gray_mean() {
+  uchar median_gray_mean() const {
     return median_gray_mean_;
   }
 
-  bool AddConnComp(ConnComp* r);
+  EnChar::Style style() const {
+    return style_;
+  }
+  void UpdateLayout(EnChar::Layout layout);
 
- private:
-  int max_cc_h_;
+  void AddChar(EnChar* ch);
+
+ protected:
+  const Polarity polarity_;
   uchar median_gray_mean_;
+  EnChar::Style style_;
 
 };
 
 class ConnCompBased : public TextDetector {
  protected:
+  static Polarity polarity_;
+
   ConnCompBased() {
   }
 
-  void GroupConnComp(const cv::Mat& gray, std::list<ConnComp*>* cclist,
+  void set_polarity(Polarity polarity) {
+    polarity_ = polarity;
+  }
+
+  void GroupConnComp(const cv::Mat& resp_mask, std::list<ConnComp*>* cclist,
                      std::list<TextLine*>* trlist);
+
+  void OverlapAnalyse(std::list<TextLine*>* trlist);
+
+  void SplitCharLine(std::list<TextLine*>* cllist);
 
   void BuildCCMap(cv::Mat* map, cv::Size map_size, CCItr begin, CCItr end);
 
@@ -136,17 +139,31 @@ class ConnCompBased : public TextDetector {
     return cc1->y1() < cc2->y1();
   }
 
-  bool IsInSearchScope(const AttrCharLine* tr, const AttrConnComp* cc) {
-    return cc->y1() < tr->y2() - tr->max_cc_h() / 3;
+  bool IsInSearchScope(const CharLine* tr, const ConnComp* ch) const {
+    return ch->y1() < tr->y2() - tr->max_char_h() / 3;
   }
 
-  bool IsInOneLine(const AttrCharLine* tr, const AttrConnComp* region);
+  bool CheckInOneLine(CharLine* tr, Char* ch);
 
-  bool MatchY(const Char* ch, const ConnComp* cc) const {
-    return (abs(ch->y1() - cc->y1()) < ch->Height() / 6
-        && abs(ch->y2() - cc->y2()) < ch->Height() / 6)
-        || (abs(ch->y1() - cc->y1()) < ch->Height() / 4 && ch->HRatio(cc) > 0.85);
+  bool MostAreUpright(const CharLine* tl) const;
+
+  bool MatchY1(const Region* r1, const Region* r2) const {
+    return abs(r1->y1() - r2->y1()) < std::min(r1->Height(), r2->Height()) / 4.7;
   }
+
+  bool MatchY2(const Region* r1, const Region* r2) const {
+    return abs(r1->y2() - r2->y2()) < std::min(r1->Height(), r2->Height()) / 4.7;
+  }
+
+  bool IsOverlapped(TextLine* tl1, TextLine* tl2) const;
+
+  void FindSortedCandidates(AttrEnCharLine* tl, CCItr begin, CCItr end,
+                            std::vector<CCItr>* candidates);
+
+  void PrintTextLineStyle(AttrEnCharLine* tl);
+
+  CharLine* CreateAttrEnCharLine(CharConstItr begin, CharConstItr end);
+
 };
 
 }

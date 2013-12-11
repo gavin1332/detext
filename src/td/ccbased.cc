@@ -2,6 +2,7 @@
 
 #include <stack>
 #include <fstream>
+#include <algorithm>
 
 #include <opencv2/imgproc/imgproc.hpp>
 
@@ -14,43 +15,21 @@ using namespace dtxt;
 
 // TODO: 如果一个联通区域包含多个有效的小联通区域，则判定为无效
 void AttrConnComp::CheckValidation() {
-  if (!valid()) {
-    return;
-  }
   if (AspectRatio() < 0.45 && AreaRatio() > 0.7) {
     upright_ = true;
-    return;
-  }
-  // TODO: PixelNum() < 50 is too small
-  if (Height() < 10 || Height() > 350 || PixelNum() < 50) {
+  } else if (Height() < 10 || Height() > 355 || PixelNum() < 50) {
+    // TODO: PixelNum() < 50 is too small
     Invalidate();
-    return;
-  }
-  if (AspectRatio() > 2 || AspectRatio() < 0.1) {
+  } else if (AspectRatio() > 2 || AspectRatio() < 0.1) {
     Invalidate();
-    return;
-  }
-  if (AreaRatio() < 0.2 || AreaRatio() > 0.85) {
+  } else if (AreaRatio() < 0.17 || AreaRatio() > 0.85) {
     Invalidate();
-    return;
-  }
-  if (AspectRatio() > 1.1 && AreaRatio() > 0.7) {
+  } else if (AspectRatio() > 1.1 && AreaRatio() > 0.7) {
     Invalidate();
-    return;
   }
-  CalcProperties();
-//  for (int i = 0; i < kCrossVarNum; ++i) {
-//    if (hcross[i] > 5 || vcross[i] > 5) {
-//      Invalidate();
-//      break;
-//    }
-//  }
-}
-
-void AttrConnComp::CalcProperties() {
-  CalcMedianGray();
-  CalcGrayStdDev();
-  CalcMaskProperties();
+  if (valid()) {
+    CalcMedianGray();
+  }
 }
 
 void AttrConnComp::CalcMedianGray() {
@@ -60,94 +39,31 @@ void AttrConnComp::CalcMedianGray() {
   median_gray_ = static_cast<AttrPix*>(*(begin + n))->gray_value();
 }
 
-void AttrConnComp::CalcGrayStdDev() {
-  double mean = 0;
-  PixelConstItr itr = pix_vec().begin();
-  PixelConstItr end = pix_vec().end();
-  for (; itr != end; ++itr) {
-    mean += static_cast<AttrPix*>(*itr)->gray_value();
+void AttrEnCharLine::UpdateLayout(EnChar::Layout layout) {
+  if ((style_ & layout) != 0) {
+    return;
   }
-  mean /= pix_vec().size();
-
-  itr = pix_vec().begin();
-  for (; itr != end; ++itr) {
-    double factor = static_cast<AttrPix*>(*itr)->gray_value() - mean;
-    gray_stddev_ += factor * factor;
+  CharItr end = clist_.end();
+  for (CharItr itr = clist_.begin(); itr != end; ++itr) {
+    static_cast<EnChar*>(*itr)->UpdateLayout(layout);
   }
-  gray_stddev_ = sqrt(gray_stddev_ / pix_vec().size());
+  style_ = EnChar::ParseStyle(style_ | layout);
 }
 
-void AttrConnComp::CalcMaskProperties() {
-  Mat mask;
-  BuildBorderedMask(&mask);
-
-  perimeter_ = 0;
-  memset(hcross, 0, kCrossVarNum * sizeof(int));
-  memset(vcross, 0, kCrossVarNum * sizeof(int));
-
-  int ori_width = Width();
-  int ori_height = Height();
-  int step = mask.step1();
-  for (int y = 0; y < ori_height; ++y) {
-    uchar* ptr = mask.ptr(y + 1) + 1;
-    for (int x = 0; x < ori_width; ++x, ++ptr) {
-      if (*ptr == 255) {
-        if (*(ptr - step - 1) == 0 || *(ptr - step) == 0
-            || *(ptr - step + 1) == 0 || *(ptr - 1) == 0 || *(ptr + 1) == 0
-            || *(ptr + step - 1) == 0 || *(ptr + step) == 0
-            || *(ptr + step + 1) == 0) {
-          ++perimeter_;
-        }
-
-        if (*(ptr - 1) == 0) {
-          if (y == ori_height / 4) {
-            ++hcross[0];
-          }
-          if (y == ori_height / 2) {
-            ++hcross[1];
-          }
-          if (y == ori_height * 3 / 4) {
-            ++hcross[2];
-          }
-        }
-
-        if (*(ptr - step) == 0) {
-          if (x == ori_width / 4) {
-            ++vcross[0];
-          }
-          if (x == ori_width / 2) {
-            ++vcross[1];
-          }
-          if (x == ori_width * 3 / 4) {
-            ++vcross[2];
-          }
-        }
-      }
-    }
+void AttrEnCharLine::AddChar(EnChar* ch) {
+  const int char_num = CharNum();
+  median_gray_mean_ = static_cast<uchar>((median_gray_mean_ * char_num
+      + static_cast<AttrEnChar*>(ch)->median_gray()) / (char_num + 1));
+  if (ch->style() != (style_ & ch->style())) {
+    style_ = EnChar::ParseStyle(style_ | ch->style());
+    TestUtils::Log("update style", style_);
   }
+  CharLine::AddChar(ch);
 }
 
-void AttrConnComp::BuildBorderedMask(Mat* mask) {
-  *mask = Mat::zeros(Height() + 2, Width() + 2, CV_8UC1);
-  Point shift(1 - x1(), 1 - y1());
-  PixelConstItr itr = pix_vec().begin();
-  PixelConstItr end = pix_vec().end();
-  for (; itr != end; ++itr) {
-    mask->at<uchar>((*itr)->pos() + shift) = 255;
-  }
-}
+Polarity ConnCompBased::polarity_;
 
-bool AttrCharLine::AddConnComp(ConnComp* cc) {
-  bool new_char_added = CharLine::AddConnComp(cc);
-  median_gray_mean_ = static_cast<uchar>((median_gray_mean_ * CharNum()
-      + static_cast<AttrConnComp*>(cc)->median_gray()) / (CharNum() + 1));
-  if (cc->Height() > max_cc_h_) {
-    max_cc_h_ = cc->Height();
-  }
-  return new_char_added;
-}
-
-void ConnCompBased::GroupConnComp(const Mat& gray, list<ConnComp*>* cclist,
+void ConnCompBased::GroupConnComp(const Mat& resp_mask, list<ConnComp*>* cclist,
                                   list<TextLine*>* tllist) {
   extern bool SHOW_GROUP_STEP_;
 
@@ -156,102 +72,251 @@ void ConnCompBased::GroupConnComp(const Mat& gray, list<ConnComp*>* cclist,
   CCItr begin = cclist->begin();
   CCItr end = cclist->end();
   Mat map;
-  BuildCCMap(&map, gray.size(), begin, end);
+  BuildCCMap(&map, resp_mask.size(), begin, end);
   if (SHOW_GROUP_STEP_) {
     TestUtils::ShowImage(map);
   }
-
   const uchar kLooseThres = 35;
   bool show_steps = SHOW_GROUP_STEP_;
+  vector<CCItr> candidates;
   CCItr ccbase = begin;
   while (ccbase != end) {
     if (!(*ccbase)->valid()) {
       ++ccbase;
       continue;
     }
-    AttrCharLine* tl = new AttrCharLine();
-    tl->AddConnComp(*ccbase);
+    AttrEnCharLine* tl = new AttrEnCharLine(polarity_);
+    tl->AddChar(new AttrEnChar(*ccbase));
     (*ccbase)->Invalidate();
+    bool char_added = true;
 
-    CCItr itr = ccbase;
-    for (++itr; itr != end; ++itr) {
-      AttrConnComp* acc = static_cast<AttrConnComp*>(*itr);
-      if (!IsInSearchScope(tl, acc)) {
+    CCItr outer = ccbase;
+    while (char_added && outer != end) {
+      char_added = false;
+      candidates.clear();
+      FindSortedCandidates(tl, outer, end, &candidates);
+      if (candidates.empty()) {
         break;
       }
-      if (!acc->valid()) {
-        continue;
-      }
 
-      if (show_steps) {
-        TestUtils::ShowRect(map, tl->ToCvRect(), Scalar(0, 0, 255), 2);
-        show_steps &= !TestUtils::ShowRect(map, acc->ToCvRect(),
-                                           Scalar(0, 255, 0));
-      }
+      vector<CCItr>::iterator inner = candidates.begin();
+      for (; inner != candidates.end(); ++inner) {
+        if (show_steps) {
+          show_steps &= !TestUtils::ShowRect(map, tl->ToCvRect(),
+                                             Scalar(0, 0, 255), 2);
+        }
+        if (show_steps) {
+          show_steps &= !TestUtils::ShowRect(map, (**inner)->ToCvRect(),
+                                             Scalar(0, 255, 0), 2);
+        }
 
-      const int kDistThres = acc->Height() / 2;
-      if (tl->CalcWidthInterval(acc) > kDistThres) {
-        TestUtils::Log("too wide interval");
-        continue;
-      }
+        AttrEnChar* ch = new AttrEnChar(**inner);
+        uchar median_gray_diff = abs(
+            ch->median_gray() - tl->median_gray_mean());
+        //      TestUtils::Log("median_gray_diff", (int) median_gray_diff);
+        if (tl->Contains(ch)) {
+          // TODO: change to use EnChar::Style
+          if (median_gray_diff >= kLooseThres) {
+            delete ch;
+            TestUtils::Log("contained but without consistent property");
+            continue;
+          }
+        }
+        // Must be the last step, for it will change the tl's property
+        if (!CheckInOneLine(tl, ch)) {
+          delete ch;
+          TestUtils::Log("not in a line");
+          continue;
+        }
 
-      bool add_cc = false;
-      uchar median_gray_diff = abs(acc->median_gray() - tl->median_gray_mean());
-//      TestUtils::Log("median_gray_diff", (int) median_gray_diff);
-      if (IsInOneLine(tl, acc)) {
-        add_cc = true;
-        TestUtils::Log("they are in one line and add the cc");
-      } else if (tl->Contains(acc) && median_gray_diff < kLooseThres) {
-        add_cc = true;
-        TestUtils::Log("the base contains cc and add the cc");
-      }
-      if (!add_cc) {
-        continue;
-      }
+        // TODO: 添加根据Text line style过滤的逻辑
+        TestUtils::Log("Add the ch");
+        tl->AddChar(ch);
+        (**inner)->Invalidate();
+        char_added = true;
 
-      tl->AddConnComp(acc);
-      acc->Invalidate();
-      itr = ccbase;
-      if (show_steps) {
-        show_steps &= !TestUtils::ShowRect(map, tl->ToCvRect(),
-                                           Scalar(0, 100, 255), 2);
+        if (show_steps) {
+          show_steps &= !TestUtils::ShowRect(map, tl->ToCvRect(),
+                                             Scalar(255, 255, 0), 2);
+        }
       }
     }
 
-    if (tl->CharNum() > 2) {
-      tllist->push_back(tl);
-    } else {
+    if (tl->CharNum() <= 2) {
+      TestUtils::Log("too less ccs in one tr");
       delete tl;
+    } else if (tl->AspectRatio() < 1.2) {
+      TestUtils::Log("too small aspect ratio");
+      delete tl;
+    } else if (MostAreUpright(tl)) {
+      TestUtils::Log("most are upright");
+      delete tl;
+    } else if (tl->x1() < 5 || tl->x2() > resp_mask.cols - 5 || tl->y1() < 10
+        || tl->y2() > resp_mask.rows - 10) {
+      TestUtils::Log("ignore lines on the edges");
+      delete tl;
+    } else {
+      TestUtils::Log("accept a text line");
+      PrintTextLineStyle(tl);
+      tllist->push_back(tl);
     }
 
     for (++ccbase; ccbase != end && !(*ccbase)->valid(); ++ccbase) {
     }
   }
+
+  if (show_steps) {
+    DispRects(resp_mask, *tllist, Scalar(0, 0, 255));
+  }
 }
 
-// TODO: check
-bool ConnCompBased::IsInOneLine(const AttrCharLine* tl,
-                                const AttrConnComp* cc) {
-  int my1, my2;
-  tl->MedianY12(&my1, &my2);
-  int mh = my2 - my1;
+void ConnCompBased::PrintTextLineStyle(AttrEnCharLine* tl) {
+  CharConstItr end = tl->clist().end();
+  cout << "text line style: ";
+  for (CharConstItr itr = tl->clist().begin(); itr != end; ++itr) {
+    cout << EnChar::GetStyleName(static_cast<EnChar*>(*itr)->style());
+  }
+  cout << endl;
+}
 
-  bool top_or_bottom_match = min(abs(cc->y1() - my1), abs(cc->y2() - my2))
-      < (my2 - my1) / 3 || abs(cc->y1() - tl->y1()) < (my2 - my1) / 3
-      || abs(cc->y2() - tl->y2()) < (my2 - my1) / 3;
-  double h_max_h_ratio = (double) std::min(cc->Height(), mh)
-      / std::max(cc->Height(), mh);
-  if (h_max_h_ratio > 0.5 && top_or_bottom_match) {
+void ConnCompBased::FindSortedCandidates(AttrEnCharLine* tl, CCItr begin,
+                                         CCItr end, vector<CCItr>* candidates) {
+  for (; begin != end; ++begin) {
+    if (!(*begin)->valid()) {
+      continue;
+    }
+    if (!IsInSearchScope(tl, *begin)) {
+      break;
+    }
+    if (tl->CalcWidthInterval(*begin) > (*begin)->Height() / 1.5) {
+      continue;
+    }
+    candidates->push_back(begin);
+  }
+  sort(candidates->begin(), candidates->end(), [&](CCItr it1, CCItr it2) {
+    int dist1 =
+    (*it1)->x2() > tl->x2() ?
+    (*it1)->x1() - tl->x2() : tl->x1() - (*it1)->x2();
+    int dist2 =
+    (*it2)->x2() > tl->x2() ?
+    (*it2)->x1() - tl->x2() : tl->x1() - (*it2)->x2();
+    return dist1 < dist2;
+  });
+}
+
+bool ConnCompBased::MostAreUpright(const CharLine* tl) const {
+  int upright_num = 0;
+  for (CharConstItr itr = tl->clist().begin(); itr != tl->clist().end();
+      ++itr) {
+    if ((*itr)->CCNum() == 1
+        && static_cast<AttrConnComp*>(static_cast<EnChar*>(*itr)->GetCC())
+            ->upright()) {
+      ++upright_num;
+    }
+  }
+  int total = tl->clist().size();
+  return upright_num > total * 3 / 4;
+}
+
+bool ConnCompBased::CheckInOneLine(CharLine* cl, Char* ch) {
+  AttrEnCharLine* ch_line = static_cast<AttrEnCharLine*>(cl);
+  const EnChar* neib = static_cast<const EnChar*>(ch_line->NeighborChar(ch));
+  EnChar* ench = static_cast<EnChar*>(ch);
+  if (MatchY1(neib, ench) && MatchY2(neib, ench)) {
+    ench->set_style(neib->style());
     return true;
   }
-  if (MatchY(tl->NeighborChar(cc), cc)) {
-    return true;
-  }
-  if (tl->CharNum() > 3) {
-    int median_h = tl->MedianHeight();
-    double h_median_h_ratio = (double) std::min(cc->Height(), median_h)
-        / std::max(cc->Height(), median_h);
-    return h_median_h_ratio > 0.75 && top_or_bottom_match;
+
+  const double kDiffRatioThres = 1.1;
+  int y2diff = ch->y2() - neib->y2();
+  int y1diff = ch->y1() - neib->y1();
+  if (MatchY1(neib, ench)) {
+    if (abs(y2diff) < min(ch->Height(), neib->Height()) * kDiffRatioThres) {
+      if (y2diff < 0) {
+        if (neib->style() == EnChar::STYLEa
+            || neib->style() == EnChar::STYLEh) {
+          ench->set_style(neib->style());
+          ch_line->UpdateLayout(EnChar::BOTTOM_MARGIN);
+          return true;
+        }
+        if (neib->style() == EnChar::STYLEy
+            || neib->style() == EnChar::STYLEf) {
+          ench->set_style(
+              EnChar::ParseStyle(neib->style() & ~EnChar::BOTTOM_MARGIN));
+          return true;
+        }
+      } else if (neib->style() == EnChar::STYLEa
+          || neib->style() == EnChar::STYLEh) {
+        ench->set_style(neib->style());
+        ench->UpdateLayout(EnChar::BOTTOM_MARGIN);
+        return true;
+      }
+    }
+  } else if (MatchY2(neib, ench)) {
+    if (abs(y1diff) < min(ch->Height(), neib->Height()) * kDiffRatioThres) {
+      if (y1diff > 0) {
+        if (neib->style() == EnChar::STYLEa
+            || neib->style() == EnChar::STYLEy) {
+          ench->set_style(neib->style());
+          ch_line->UpdateLayout(EnChar::TOP_MARGIN);
+          return true;
+        }
+        if (neib->style() == EnChar::STYLEh
+            || neib->style() == EnChar::STYLEf) {
+          ench->set_style(
+              EnChar::ParseStyle(neib->style() & ~EnChar::TOP_MARGIN));
+          return true;
+        }
+      } else if (neib->style() == EnChar::STYLEa
+          || neib->style() == EnChar::STYLEy) {
+        ench->set_style(neib->style());
+        ench->UpdateLayout(EnChar::TOP_MARGIN);
+        return true;
+      }
+    }
+  } else {
+    const int kDiffHThres = min(ch->Height(), ch_line->min_char_h())
+        * ((cl->CharNum() == 1 && ch->x2() > cl->x2()) ? 0.8 : 1.1);
+    if (abs(y1diff) < kDiffHThres && abs(y2diff) < kDiffHThres) {
+      if (y1diff < 0 && y2diff > 0 && neib->style() == EnChar::STYLEa) {
+        ench->set_style(EnChar::STYLEf);
+        return true;
+      }
+      if (y1diff > 0 && y2diff > 0) {
+        if (neib->style() == EnChar::STYLEh) {
+          ench->set_style(EnChar::STYLEy);
+          return true;
+        }
+        if (neib->style() == EnChar::STYLEa) {
+          ench->set_style(EnChar::STYLEy);
+          ch_line->UpdateLayout(EnChar::TOP_MARGIN);
+          return true;
+        }
+      }
+      if (y1diff < 0 && y2diff < 0) {
+        if (neib->style() == EnChar::STYLEy) {
+          ench->set_style(EnChar::STYLEh);
+          return true;
+        }
+        if (neib->style() == EnChar::STYLEa) {
+          ch_line->UpdateLayout(EnChar::BOTTOM_MARGIN);
+          ench->set_style(EnChar::STYLEh);
+          return true;
+        }
+      }
+      if (y1diff > 0 && y2diff < 0) {
+        if (neib->style() == EnChar::STYLEf) {
+          ench->set_style(EnChar::STYLEa);
+          return true;
+        }
+        if (neib->style() == EnChar::STYLEa) {
+          ch_line->UpdateLayout(EnChar::TOP_MARGIN);
+          ch_line->UpdateLayout(EnChar::BOTTOM_MARGIN);
+          ench->set_style(EnChar::STYLEa);
+          return true;
+        }
+      }
+    }
   }
   return false;
 }
@@ -272,6 +337,124 @@ void ConnCompBased::BuildCCMap(Mat* map, Size map_size, CCItr begin,
     PixelConstItr pend = cc->pix_vec().end();
     for (; pit != pend; ++pit) {
       map->at<uchar>((*pit)->pos()) = value;
+    }
+  }
+}
+
+bool ConnCompBased::IsOverlapped(TextLine* tl1, TextLine* tl2) const {
+  int inner_x1, inner_y1, inner_x2, inner_y2;
+  inner_x1 = max(tl1->x1(), tl2->x1());
+  inner_y1 = max(tl1->y1(), tl2->y1());
+  inner_x2 = min(tl1->x2(), tl2->x2());
+  inner_y2 = min(tl1->y2(), tl2->y2());
+  if (inner_x1 >= inner_x2 || inner_y1 >= inner_y2) {
+    return false;
+  }
+
+  int inner_area = (inner_x2 - inner_x1 + 1) * (inner_y2 - inner_y1 + 1);
+  double area_ratio = (double) inner_area / min(tl1->Area(), tl2->Area());
+  return area_ratio > 0.72;
+}
+
+void ConnCompBased::OverlapAnalyse(list<TextLine*>* tllist) {
+  TextLineItr it = tllist->begin();
+  while (it != tllist->end()) {
+    AttrEnCharLine* itl = static_cast<AttrEnCharLine*>(*it);
+    bool it_erased = false;
+//    double ihstddev = itl->HeightStdDev();
+    TextLineItr jt = it;
+    ++jt;
+    while (jt != tllist->end()) {
+      AttrEnCharLine* jtl = static_cast<AttrEnCharLine*>(*jt);
+      if (itl->polarity() == jtl->polarity() || !IsOverlapped(itl, jtl)) {
+        ++jt;
+        continue;
+      }
+//      double jhstddev = jtl->HeightStdDev();
+//      if (ihstddev < jhstddev) {
+//        jt = tllist->erase(jt);
+//      } else {
+//        it = tllist->erase(it);
+//        it_erased = true;
+//        break;
+//      }
+      if (itl->CharNum() > jtl->CharNum()) {
+        jt = tllist->erase(jt);
+      } else {
+        it = tllist->erase(it);
+        it_erased = true;
+        break;
+      }
+    }
+    if (!it_erased) {
+      ++it;
+    }
+  }
+}
+
+CharLine* ConnCompBased::CreateAttrEnCharLine(CharConstItr begin,
+                                              CharConstItr end) {
+  CharLine* cl = new CharLine();
+  for (; begin != end; ++begin) {
+    cl->AddChar(new AttrEnChar(static_cast<EnChar*>(*begin)->GetCC()));
+  }
+  return cl;
+}
+
+void ConnCompBased::SplitCharLine(list<TextLine*>* tllist) {
+  list<TextLine*>::iterator itr = tllist->begin();
+  while (itr != tllist->end()) {
+    CharLine* cl = static_cast<CharLine*>(*itr);
+    if (cl->CharNum() < 4) {
+      ++itr;
+      continue;
+    }
+
+    int median_interval = cl->MedianInterval();
+    int median_width = cl->MedianWidth();
+    float wthres;
+    // OPTIMIZE
+    if (median_interval < 2) {
+      wthres = (float) median_width / 2;
+    } else {
+      wthres = median_interval + median_width * 0.5f;
+    }
+
+    const list<Char*>& clist = cl->clist();
+    CharConstItr begin = clist.begin();
+    CharConstItr end = clist.end();
+    CharConstItr ait = begin;
+
+    CharConstItr bit = ait;
+    for (++bit; bit != end; ait = bit++) {
+      int interval = (*bit)->x1() - (*ait)->x2();
+      if (interval > wthres) {
+        tllist->insert(itr, CreateAttrEnCharLine(begin, bit));
+        begin = bit;
+      }
+    }
+
+    if (begin != clist.begin()) {
+      if (begin != end) {
+        tllist->insert(itr, CreateAttrEnCharLine(begin, end));
+      }
+      cout << "split " << (cl)->ToString() << endl;
+      delete cl;
+      itr = tllist->erase(itr);
+    } else {
+      ++itr;
+    }
+  }
+
+  itr = tllist->begin();
+  while (itr != tllist->end()) {
+    CharLine* cl = static_cast<CharLine*>(*itr);
+    if (cl->CharNum() == 1) {
+      TestUtils::Log("Remove single char", (*itr)->ToString());
+      delete *itr;
+      itr = tllist->erase(itr);
+    } else {
+      ++itr;
     }
   }
 }

@@ -27,17 +27,19 @@ extern bool SHOW_RESPONSE_;
 extern bool SHOW_GROUP_STEP_;
 extern bool SHOW_GROUPED_RESULT_;
 extern bool SHOW_FINAL_;
+extern bool SAVE_RESULT_INTERACTION_;
 
 extern double THRESHOLD_;
 
 bool PRINT_LOG_ = true;
 bool SHOW_GRAY_ = true;
-bool SHOW_RESPONSE_ = true;
+bool SHOW_RESPONSE_ = !true;
 bool SHOW_GROUP_STEP_ = true;
 bool SHOW_GROUPED_RESULT_ = true;
 bool SHOW_FINAL_ = true;
+bool SAVE_RESULT_INTERACTION_ = true;
 
-double THRESHOLD_ = 3;
+double THRESHOLD_;
 }
 
 using namespace dtxt;
@@ -47,10 +49,9 @@ void SaveEList(const list<TextLine*>& E_list, const String& img_path) {
   list<TextLine*>::const_iterator itr = E_list.begin();
   for (; itr != E_list.end(); ++itr) {
     writer << (*itr)->x1() << " " << (*itr)->y1() << " " << (*itr)->x2() << " "
-        << (*itr)->y2() << endl;
+           << (*itr)->y2() << endl;
   }
   writer.close();
-  TestUtils::Print("Saved estimated rectangles\n");
 }
 
 void ReadRects(const String& img_path, vector<Rect>* rect_vec) {
@@ -111,10 +112,10 @@ int main(int argc, char** argv) {
   const int file_count_total = filename_vec.size();
   double exec_time = (double) getTickCount();
   for (; it != filename_vec.end(); ++it, ++count) {
-    if (it->compare("103.jpg") < 0) {
+    if (it->compare("101.jpg") < 0) {
       continue;
     }
-    THRESHOLD_ = 5;
+    THRESHOLD_ = 2.5;
 
     const string img_path = data_dir + "/" + *it;
     TestUtils::Print(img_path);
@@ -129,9 +130,9 @@ int main(int argc, char** argv) {
       continue;
     }
 
-    float zoom = 1;
-    if (img.cols > 1280) {
-      zoom = (float) 1280 / img.cols;
+    double zoom = 1;
+    if (img.rows > 1280 || img.cols > 1280) {  // 1280
+      zoom = (double) 1280 / img.cols;
       resize(img, img, Size(), zoom, zoom);
     }
 
@@ -156,7 +157,16 @@ int main(int argc, char** argv) {
 
     evaluator.RecordMatch(*E_list, T_list);
 
-//    SaveEList(*E_list, img_path);
+    if (SAVE_RESULT_INTERACTION_) {
+      cout << "Save result? [y/N]? ";
+      char save = getchar();
+      if (save == 'y' || save == 'Y') {
+        SaveEList(*E_list, img_path);
+        TestUtils::Print("Saved estimated rectangles");
+      } else {
+        TestUtils::Print("Result is not saved");
+      }
+    }
     ReleaseList(E_list);
     delete E_list;
   }

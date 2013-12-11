@@ -21,6 +21,11 @@ class Const {
   static const uchar kMark = 100;
   static const uchar kBG = 0;
 
+  static Polarity ParsePolarity(int code) {
+    assert(code == 0 || code == 1);
+    return (code == 0) ? POS : NEG;
+  }
+
  private:
   Const();
   Const(const Const& const_);
@@ -172,43 +177,123 @@ typedef std::list<ConnComp*>::iterator CCItr;
 
 class Char : public Region {
  public:
-  Char(ConnComp* cc, const char& ch = '\0')
-     : Region(cc->x1(), cc->y1(), cc->x2(), cc->y2()),
-       ch_(ch) {
+  Char(ConnComp* cc)
+      : Region(cc->x1(), cc->y1(), cc->x2(), cc->y2()),
+        value_(0) {
     cclist_.push_back(cc);
   }
-  ~Char() {}
+  ~Char() {
+  }
+
+  ushort value() const {
+    return value_;
+  }
+  void set_value(ushort value) {
+    value_ = value;
+  }
+
+  int CCNum() const {
+    return cclist_.size();
+  }
 
   const std::list<ConnComp*>& cclist() {
     return cclist_;
   }
 
-  bool WidthCovers(ConnComp* cc) {
-    return cc->x1() >= x1() && cc->x2() <= x2();
+  bool WCovers(Region* rg) {
+    return Width() >= rg->Width()
+        && (rg->x1() >= x1() || abs(rg->x1() - x1()) < Width() / 6)
+        && (rg->x2() <= x2() || abs(rg->x2() - x2()) < Width() / 6);
   }
 
-  bool CoverWidth(Char* ch) {
-    return ch->x1() >= x1() && ch->x2() <= x2();
+  bool WCoveredBy(Region* rg) {
+    return Width() <= rg->Width()
+        && (rg->x1() <= x1() || abs(rg->x1() - x1()) < rg->Width() / 6)
+        && (rg->x2() >= x2() || abs(rg->x2() - x2()) < rg->Width() / 6);
   }
 
-  bool WidthCoveredBy(ConnComp* cc) {
-    return cc->x1() <= x1() && cc->x2() >= x2();
+ protected:
+  ushort value_;
+  // No need to release ConnComps
+  std::list<ConnComp*> cclist_;
+
+  Char();
+};
+
+// English char
+class EnChar : public Char {
+ public:
+  enum Layout {
+    MIDDLE_LINE = 1,
+    TOP_MARGIN = 2,
+    BOTTOM_MARGIN = 4
+  };
+  enum Style {
+    STYLEa = MIDDLE_LINE,
+    STYLEh = MIDDLE_LINE | TOP_MARGIN,
+    STYLEy = MIDDLE_LINE | BOTTOM_MARGIN,
+    STYLEf = MIDDLE_LINE | TOP_MARGIN | BOTTOM_MARGIN
+  };
+
+  static Style ParseStyle(int code) {
+    switch (code) {
+      case STYLEa: return STYLEa;
+      case STYLEh: return STYLEh;
+      case STYLEy: return STYLEy;
+      case STYLEf: return STYLEf;
+      default: throw "Invalid Input";
+    }
+  }
+
+  static char GetStyleName(Style style) {
+    switch (style) {
+      case STYLEa: return 'a';
+      case STYLEh: return 'h';
+      case STYLEy: return 'y';
+      case STYLEf: return 'f';
+      default: throw "Invalid Input";
+    }
+  }
+
+  EnChar(ConnComp* cc)
+      : Char(cc),
+        style_(STYLEa) {
+  }
+  ~EnChar() {
+  }
+
+  Style style() const {
+    return style_;
+  }
+  void set_style(Style style) {
+    style_ = style;
+  }
+  void UpdateLayout(Layout layout) {
+    style_ = EnChar::ParseStyle(style_ | layout);
+  }
+
+  ConnComp* GetCC() const {
+    return cclist_.front();
+  }
+
+ private:
+  Style style_;
+
+  EnChar();
+
+};
+
+class CombChar : public Char {
+ public:
+  CombChar(ConnComp* cc)
+      : Char(cc) {
   }
 
   // Only recieved width covered cc
   void AddConnComp(ConnComp* cc);
 
-  void Swallow(Char* ch) {
-    assert(CoverWidth(ch));
-    cclist_.insert(cclist_.end(), ch->cclist().begin(), ch->cclist().end());
-  }
+  void Swallow(Char* ch);
 
- private:
-  char ch_;
-  // No need to release ConnComps
-  std::list<ConnComp*> cclist_;
-
-  Char();
 };
 
 typedef std::list<Char*>::const_iterator CharConstItr;
@@ -241,10 +326,16 @@ class TextLine : public Region {
 
 };
 
+typedef std::list<TextLine*>::const_iterator TextLineConstItr;
+typedef std::list<TextLine*>::iterator TextLineItr;
+
 class CharLine : public TextLine {
  public:
   CharLine()
-      : TextLine(INT_MAX, INT_MAX, 0, 0) {
+      : TextLine(INT_MAX, INT_MAX, 0, 0),
+        max_char_h_(0),
+        min_char_h_(INT_MAX),
+        max_char_w_(0) {
   }
   ~CharLine();
 
@@ -256,6 +347,20 @@ class CharLine : public TextLine {
     return clist_;
   }
 
+  int max_char_h() const {
+    return max_char_h_;
+  }
+
+  int min_char_h() const {
+    return min_char_h_;
+  }
+
+  int max_char_w() const {
+    return max_char_w_;
+  }
+
+  int HeightStdDev() const;
+
   int MedianWidth() const;
 
   int MedianHeight() const;
@@ -264,7 +369,7 @@ class CharLine : public TextLine {
 
   void MedianY12(int* my1, int* my2) const;
 
-  int CalcWidthInterval(const ConnComp* cc) const {
+  int CalcWidthInterval(const Region* cc) const {
     if (cc->x2() < x1() || cc->x1() > x2()) {
       return std::min(abs(x1() - cc->x2()), abs(x2() - cc->x1()));
     } else {
@@ -272,12 +377,12 @@ class CharLine : public TextLine {
     }
   }
 
-  bool Contains(const ConnComp* cc) const {
+  bool Contains(const Region* cc) const {
     return cc->x1() >= x1() && cc->y1() >= y1() && cc->x2() <= x2()
         && cc->y2() <= y2();
   }
 
-  const Char* NeighborChar(const ConnComp* cc) const {
+  const Char* NeighborChar(const Region* cc) const {
     return (cc->x2() < x1() + Width() / 2) ? FrontChar() : BackChar();
   }
 
@@ -288,15 +393,39 @@ class CharLine : public TextLine {
     return clist_.back();
   }
 
+  // TODO: check
+  bool CheckValidation() {
+    return Width() > CharNum() * max_char_w_ * 0.75;
+  }
+
+  virtual void AddChar(Char* ch);
+
+ protected:
+  int max_char_h_;
+  int min_char_h_;
+  int max_char_w_;
+  // Sorted by x2
+  std::list<Char*> clist_;
+
+  bool FollowListTail(Region* cc) {
+    return (cc->x1() > clist_.back()->x1() && cc->x2() > clist_.back()->x2());
+  }
+
+};
+
+class ConnCompLine : public CharLine {
+ public:
+  ConnCompLine()
+      : CharLine() {
+  }
+  ~ConnCompLine() {
+  }
+
   // return true if CharNum() increased
-  virtual bool AddConnComp(ConnComp* cc);
+  bool AddConnComp(ConnComp* cc);
 
  protected:
   std::list<Char*> clist_;
-
-  bool FollowListTail(ConnComp* cc) {
-    return (cc->x1() > clist_.back()->x1() && cc->x2() > clist_.back()->x2());
-  }
 
   // Check whether the chars before the forward iterator "fit" is width covered,
   // Swallow them if covered and value "true" is returned, false otherwise

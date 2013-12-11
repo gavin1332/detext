@@ -21,12 +21,12 @@ class LiuYi13 : public ConnCompBased {
  private:
   void ReleaseCCList(std::list<ConnComp*>* cclist);
 
-  void ParseResp(const cv::Mat& gray, const cv::Mat* resp,
+  void ParseResp(const cv::Mat& gray, const cv::Mat* resp, cv::Mat* mask,
                  std::list<ConnComp*>* cclist);
 
   void CheckCCValidation(std::list<ConnComp*>* cclist);
 
-  void genRespMap(const cv::Mat& gray, cv::Mat* resp);
+  void GenRespMap(const cv::Mat& gray, cv::Mat* resp);
 
   LiuYi13(const LiuYi13&);
   void operator=(const LiuYi13&);

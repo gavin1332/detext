@@ -11,6 +11,8 @@ using namespace dtxt;
 
 void LiuYi13::Detect(const cv::Mat& img, std::list<TextLine*>* tllist) {
   extern bool SHOW_GRAY_;
+  extern bool SHOW_RESPONSE_;
+  extern bool SHOW_GROUPED_RESULT_;
   extern bool SHOW_FINAL_;
 
   Mat gray;
@@ -20,16 +22,34 @@ void LiuYi13::Detect(const cv::Mat& img, std::list<TextLine*>* tllist) {
   }
 
   Mat resp[2];
-  genRespMap(gray, resp);
-
-  list<ConnComp*> cclist[2];
-  ParseResp(gray, resp, cclist);
-
-  for (int i = 0; i < 2; ++i) {
-    CheckCCValidation(cclist + i);
-    GroupConnComp(gray, cclist + i, tllist);
-    ReleaseCCList(cclist + i);
+  GenRespMap(gray, resp);
+  if (SHOW_RESPONSE_) {
+    Mat mat;
+    normalize(-resp[POS], mat, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+    TestUtils::ShowImage(mat);
+    normalize(resp[NEG], mat, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+    TestUtils::ShowImage(mat);
   }
+
+  Mat mask[2];
+  list<ConnComp*> cclist[2];
+  ParseResp(gray, resp, mask, cclist);
+
+  list<TextLine*> tmp_list;
+  for (int i = 0; i < 2; ++i) {
+    set_polarity(Const::ParsePolarity(i));
+    CheckCCValidation(cclist + i);
+    GroupConnComp(mask[i], cclist + i, &tmp_list);
+    tllist->splice(tllist->end(), tmp_list);
+  }
+
+  OverlapAnalyse(tllist);
+  if (SHOW_GROUPED_RESULT_) {
+    DispRects(gray, *tllist, Scalar(255, 255, 255));
+  }
+//  SplitCharLine(tllist);
+
+  ReleaseCCList(cclist);
 
   if (SHOW_FINAL_) {
     DispRects(img, *tllist, Scalar(255, 255, 255));
@@ -37,14 +57,16 @@ void LiuYi13::Detect(const cv::Mat& img, std::list<TextLine*>* tllist) {
 }
 
 void LiuYi13::ReleaseCCList(list<ConnComp*>* cclist) {
-  list<ConnComp*>::iterator cc = cclist->begin();
-  for (; cc != cclist->end(); ++cc) {
-    delete *cc;
+  for (int i = 0; i < 2; ++i) {
+    list<ConnComp*>::iterator cc = cclist[i].begin();
+    for (; cc != cclist[i].end(); ++cc) {
+      delete *cc;
+    }
+    cclist[i].clear();
   }
-  cclist->clear();
 }
 
-void LiuYi13::ParseResp(const Mat& gray, const Mat* resp,
+void LiuYi13::ParseResp(const Mat& gray, const Mat* resp, Mat* resp_mask,
                         list<ConnComp*>* cclist) {
   extern bool SHOW_RESPONSE_;
   // TODO
@@ -55,6 +77,9 @@ void LiuYi13::ParseResp(const Mat& gray, const Mat* resp,
   Mat mask[2];
   mask[POS] = resp[POS] < -kBinThres;
   mask[NEG] = resp[NEG] > kBinThres;
+
+  resp_mask[POS] = mask[POS].clone();
+  resp_mask[NEG] = mask[NEG].clone();
   if (SHOW_RESPONSE_) {
     TestUtils::ShowImage(mask[POS]);
     TestUtils::ShowImage(mask[NEG]);
@@ -96,7 +121,7 @@ void LiuYi13::CheckCCValidation(list<ConnComp*>* cclist) {
   }
 }
 
-void LiuYi13::genRespMap(const Mat& gray, Mat* resp) {
+void LiuYi13::GenRespMap(const Mat& gray, Mat* resp) {
   Mat fgray;
   gray.convertTo(fgray, CV_64FC1);
 
@@ -114,7 +139,7 @@ void LiuYi13::genRespMap(const Mat& gray, Mat* resp) {
 
   const double kMaskThres = 0.8;
   for (int i = 0; i < kN; ++i) {
-    cout << "i: " << i << endl;
+    TestUtils::Log("index", i);
     last_gauss = gauss.clone();
     GaussianBlur(gauss, gauss, Size(0, 0), delta_sigma);
     if (i >= 1) {
@@ -133,8 +158,8 @@ void LiuYi13::genRespMap(const Mat& gray, Mat* resp) {
       double tmax, tmin;
       Point pmax, pmin;
       minMaxLoc(dog, &tmin, &tmax, &pmin, &pmax);
-      cout << "max resp: " << tmin << " " << tmax << endl;
-      cout << "pos: " << pmin << " " << pmax << endl;
+//      cout << "max resp: " << tmin << " " << tmax << endl;
+//      cout << "pos: " << pmin << " " << pmax << endl;
     }
     delta_sigma = sigma * (kSigmaK - 1);
     sigma *= kSigmaK;

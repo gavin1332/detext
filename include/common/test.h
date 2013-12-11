@@ -29,14 +29,14 @@ class TestUtils {
   template<typename T>
   static void Log(const std::string& key, const T& value) {
     extern bool PRINT_LOG_;
-    if (PRINT_LOG_) std::cout << key << ": " << value << std::endl;
+    if (PRINT_LOG_) std::cout << "[INFO] " << key << ": " << value << std::endl;
   }
 
   // LOG
   template<typename T>
   static void Log(const T& value) {
     extern bool PRINT_LOG_;
-    if (PRINT_LOG_) std::cout << value << std::endl;
+    if (PRINT_LOG_) std::cout << "[INFO] " << value << std::endl;
   }
 
   static std::ostream& PrintRect(const cv::Rect& rect) {
@@ -59,12 +59,13 @@ class TestUtils {
   // waiting time.
   //
   // This function supports some convenient operations when window is active:
+  // press "n": notify the caller with a "true" returned value;
   // press "s": save the current image as a BMP file with a random filename;
-  // press "h": increase hits count, when calculating result;
-  // press "f": increase misses count, when calculating result;
-  // press "m": increase false alarms count, when calculating result;
-  // press "q": exit program, and report the result when calculating;
-  // press space bar: close current window.
+  // press "+": zoom in;
+  // press "-": zoom out;
+  // press "0": resume size;
+  // press ESC: exit program, and report the result when calculating;
+  // press space bar or ENTER: close current window.
   // click mouse on the image: print the coordinate of the click position.
   static bool ShowImage(const char* win_name, const cv::Mat& img, int wait_time);
 
