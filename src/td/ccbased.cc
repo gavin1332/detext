@@ -13,7 +13,6 @@ using namespace std;
 using namespace cv;
 using namespace dtxt;
 
-// TODO: 如果一个联通区域包含多个有效的小联通区域，则判定为无效
 void AttrConnComp::CheckValidation() {
   if (AspectRatio() < 0.45 && AreaRatio() > 0.7) {
     upright_ = true;
@@ -27,37 +26,61 @@ void AttrConnComp::CheckValidation() {
   } else if (AspectRatio() > 1.1 && AreaRatio() > 0.7) {
     Invalidate();
   }
-  if (valid()) {
-    CalcMedianGray();
-  }
 }
 
-void AttrConnComp::CalcMedianGray() {
-  int n = (PixelNum() - 1) / 2;
-  PixelItr begin = pix_vec().begin();
-  nth_element(begin, begin + n, pix_vec().end(), PixGrayCompare);
-  median_gray_ = static_cast<AttrPix*>(*(begin + n))->gray_value();
-}
-
-void AttrEnCharLine::UpdateLayout(EnChar::Layout layout) {
+void AttrEnCharLine::ExpandLayout(EnChar::Layout layout) {
   if ((style_ & layout) != 0) {
     return;
   }
   CharItr end = clist_.end();
   for (CharItr itr = clist_.begin(); itr != end; ++itr) {
-    static_cast<EnChar*>(*itr)->UpdateLayout(layout);
+    static_cast<EnChar*>(*itr)->ExpandLayout(layout);
+  }
+  if (layout == EnChar::TOP_MARGIN) {
+    est_h_height_ = est_a_height_;
+    est_f_height_ = est_y_height_;
+    est_a_height_ = 0;
+    est_y_height_ = 0;
+  } else {
+    est_y_height_ = est_a_height_;
+    est_f_height_ = est_h_height_;
+    est_a_height_ = 0;
+    est_h_height_ = 0;
   }
   style_ = EnChar::ParseStyle(style_ | layout);
+  TestUtils::Log("expands char line style to", style_);
+}
+
+void AttrEnCharLine::UpdateEstHeight(EnChar* ch) {
+  int *updated_value = NULL;
+  switch (ch->style()) {
+    case EnChar::STYLEa:
+      updated_value = &est_a_height_;
+      break;
+    case EnChar::STYLEh:
+      updated_value = &est_h_height_;
+      break;
+    case EnChar::STYLEy:
+      updated_value = &est_y_height_;
+      break;
+    case EnChar::STYLEf:
+      updated_value = &est_f_height_;
+      break;
+    default:
+      throw "Invalid Input";
+  }
+  *updated_value =
+      *updated_value == 0 ?
+          ch->Height() :
+          (*updated_value * CharNum() + ch->Height()) / (CharNum() + 1);
 }
 
 void AttrEnCharLine::AddChar(EnChar* ch) {
-  const int char_num = CharNum();
-  median_gray_mean_ = static_cast<uchar>((median_gray_mean_ * char_num
-      + static_cast<AttrEnChar*>(ch)->median_gray()) / (char_num + 1));
   if (ch->style() != (style_ & ch->style())) {
     style_ = EnChar::ParseStyle(style_ | ch->style());
-    TestUtils::Log("update style", style_);
+    TestUtils::Log("expands char line style to", style_);
   }
+  UpdateEstHeight(ch);
   CharLine::AddChar(ch);
 }
 
@@ -84,11 +107,11 @@ bool AttrEnCharLine::CheckValidation() {
     TestUtils::Log("too small aspect ratio");
     Invalidate();
     return false;
-  } else if (Width() < CharNum() * max_char_w_ * 0.75) {
+  } else if (Width() < CharNum() * max_char_w_ * 0.375) {
     TestUtils::Log("too small width");
     Invalidate();
     return false;
-  } else if (AreMostUpright ()) {
+  } else if (AreMostUpright()) {
     TestUtils::Log("most are upright");
     Invalidate();
     return false;
@@ -119,8 +142,8 @@ void ConnCompBased::GroupConnComp(const Mat& resp_mask, list<ConnComp*>* cclist,
       ++ccbase;
       continue;
     }
-    AttrEnCharLine* tl = new AttrEnCharLine(polarity_);
-    tl->AddChar(new AttrEnChar(*ccbase));
+    TestUtils::Log("new char line begins");
+    AttrEnCharLine* tl = new AttrEnCharLine(new EnChar(*ccbase), polarity_);
     (*ccbase)->Invalidate();
     bool char_added = true;
 
@@ -136,16 +159,14 @@ void ConnCompBased::GroupConnComp(const Mat& resp_mask, list<ConnComp*>* cclist,
       vector<CCItr>::iterator inner = candidates.begin();
       for (; inner != candidates.end(); ++inner) {
         if (show_steps) {
-          show_steps &= !TestUtils::ShowRect(map, tl->ToCvRect(),
-                                             Scalar(0, 0, 255), 2);
+          show_steps &= !HilightCharLine(map, tl);
         }
         if (show_steps) {
-          show_steps &= !TestUtils::ShowRect(map, (**inner)->ToCvRect(),
-                                             Scalar(0, 255, 0), 2);
+          show_steps &= !HilightClAndCC(map, tl, **inner);
         }
 
-        AttrEnChar* ch = new AttrEnChar(**inner);
-        if (!CheckStyle(tl, ch)) {
+        EnChar* ch = new EnChar(**inner);
+        if (!CheckLayout(tl, ch)) {
           delete ch;
           TestUtils::Log("conflicted char style");
 
@@ -158,28 +179,22 @@ void ConnCompBased::GroupConnComp(const Mat& resp_mask, list<ConnComp*>* cclist,
           continue;
         }
 
-        TestUtils::Log("Add the ch");
         tl->AddChar(ch);
+        TestUtils::Log("Add the ch with style", ch->style());
         (**inner)->Invalidate();
         char_added = true;
 
         if (show_steps) {
-          show_steps &= !TestUtils::ShowRect(map, tl->ToCvRect(),
-                                             Scalar(255, 255, 0), 2);
+          show_steps &= !HilightCharLine(map, tl, Scalar(255, 0, 255));
         }
       }
     }
 
-    // TODO: 添加根据Text line style过滤的逻辑
+    // TODO: 添加根据char line style过滤的逻辑
     if (!tl->CheckValidation()) {
       delete tl;
-    }else if (tl->x1() < 5 || tl->x2() > resp_mask.cols - 5 || tl->y1() < 10
-        || tl->y2() > resp_mask.rows - 10) {
-      // TODO: Check the necessity of this condition
-      TestUtils::Log("ignore lines on the edges");
-      delete tl;
     } else {
-      TestUtils::Log("accept a text line");
+      TestUtils::Log("accept a char line");
       PrintTextLineStyle(tl);
       tllist->push_back(tl);
     }
@@ -189,13 +204,153 @@ void ConnCompBased::GroupConnComp(const Mat& resp_mask, list<ConnComp*>* cclist,
   }
 
   if (show_steps) {
-    DispRects(resp_mask, *tllist, Scalar(0, 0, 255));
+    DispRects(resp_mask, *tllist, Scalar(0, 255, 0));
   }
+}
+
+bool ConnCompBased::CheckHeight(AttrEnCharLine* cl, EnChar* ch) {
+  int est_height = 0;
+  switch (ch->style()) {
+    case EnChar::STYLEa:
+      est_height = cl->est_a_height();
+      break;
+    case EnChar::STYLEh:
+      if (ch->Height() < cl->est_a_height()) {
+        return false;
+      }
+      est_height = cl->est_h_height();
+      break;
+    case EnChar::STYLEy:
+      if (ch->Height() < cl->est_a_height()) {
+        return false;
+      }
+      est_height = cl->est_y_height();
+      break;
+    case EnChar::STYLEf:
+      if (ch->Height() < cl->est_a_height()) {
+        return false;
+      }
+      est_height = cl->est_f_height();
+      break;
+    default:
+      throw "Invalid Input";
+  }
+  return (est_height == 0 || StrictMatchHeight(est_height, ch->Height()));
+}
+
+bool ConnCompBased::CheckLayout(AttrEnCharLine* cl, EnChar* ch) {
+  const EnChar* neib = static_cast<const EnChar*>(cl->NeighborChar(ch));
+  const double kDiffRatioThres = 1.1;
+  int dy1 = ch->y1() - neib->y1();
+  int dy2 = ch->y2() - neib->y2();
+  bool matchy1 = MatchY1(neib, ch);
+  bool matchy2 = MatchY2(neib, ch);
+
+  if (matchy1 && matchy2) {
+    if (StrictMatchHeight(neib->Height(), ch->Height())) {
+      ch->set_style(neib->style());
+      return true;
+    }
+  }
+
+  if (!matchy1 && !matchy2) {
+    const int kDiffHThres = min(ch->Height(), cl->min_char_h())
+        * ((cl->CharNum() == 1 && ch->x2() > cl->x2()) ? 0.8 : 1.1);
+    if (abs(dy1) < kDiffHThres && abs(dy2) < kDiffHThres) {
+      if (dy1 < 0 && dy2 > 0 && neib->style() == EnChar::STYLEa) {
+        ch->set_style(EnChar::STYLEf);
+        return CheckHeight(cl, ch);
+      }
+      if (dy1 > 0 && dy2 > 0) {
+        if (neib->style() == EnChar::STYLEh) {
+          ch->set_style(EnChar::STYLEy);
+          return CheckHeight(cl, ch);
+        }
+        if (neib->style() == EnChar::STYLEa) {
+          ch->set_style(EnChar::STYLEy);
+          cl->ExpandLayout(EnChar::TOP_MARGIN);
+          return CheckHeight(cl, ch);
+        }
+      }
+      if (dy1 < 0 && dy2 < 0) {
+        if (neib->style() == EnChar::STYLEy) {
+          ch->set_style(EnChar::STYLEh);
+          return CheckHeight(cl, ch);
+        }
+        if (neib->style() == EnChar::STYLEa) {
+          cl->ExpandLayout(EnChar::BOTTOM_MARGIN);
+          ch->set_style(EnChar::STYLEh);
+          return CheckHeight(cl, ch);
+        }
+      }
+      if (dy1 > 0 && dy2 < 0) {
+        if (neib->style() == EnChar::STYLEf) {
+          ch->set_style(EnChar::STYLEa);
+          return CheckHeight(cl, ch);
+        }
+        if (neib->style() == EnChar::STYLEa) {
+          cl->ExpandLayout(EnChar::TOP_MARGIN);
+          cl->ExpandLayout(EnChar::BOTTOM_MARGIN);
+          ch->set_style(EnChar::STYLEa);
+          return CheckHeight(cl, ch);
+        }
+      }
+    }
+    return false;
+  }
+
+  bool less_dy1 = abs(neib->y1() - ch->y1()) < abs(neib->y2() - ch->y2());
+  if (less_dy1) {
+    if (abs(dy2) < min(ch->Height(), neib->Height()) * kDiffRatioThres) {
+      if (dy2 < 0) {
+        if (neib->style() == EnChar::STYLEa
+            || neib->style() == EnChar::STYLEh) {
+          ch->set_style(neib->style());
+          cl->ExpandLayout(EnChar::BOTTOM_MARGIN);
+          return CheckHeight(cl, ch);
+        }
+        if (neib->style() == EnChar::STYLEy
+            || neib->style() == EnChar::STYLEf) {
+          ch->set_style(
+              EnChar::ParseStyle(neib->style() & ~EnChar::BOTTOM_MARGIN));
+          return CheckHeight(cl, ch);
+        }
+      } else if (neib->style() == EnChar::STYLEa
+          || neib->style() == EnChar::STYLEh) {
+        ch->set_style(neib->style());
+        ch->ExpandLayout(EnChar::BOTTOM_MARGIN);
+        return CheckHeight(cl, ch);
+      }
+    }
+  } else {
+    if (abs(dy1) < min(ch->Height(), neib->Height()) * kDiffRatioThres) {
+      if (dy1 > 0) {
+        if (neib->style() == EnChar::STYLEa
+            || neib->style() == EnChar::STYLEy) {
+          ch->set_style(neib->style());
+          cl->ExpandLayout(EnChar::TOP_MARGIN);
+          return CheckHeight(cl, ch);
+        }
+        if (neib->style() == EnChar::STYLEh
+            || neib->style() == EnChar::STYLEf) {
+          ch->set_style(
+              EnChar::ParseStyle(neib->style() & ~EnChar::TOP_MARGIN));
+          return CheckHeight(cl, ch);
+        }
+      } else if (neib->style() == EnChar::STYLEa
+          || neib->style() == EnChar::STYLEy) {
+        ch->set_style(neib->style());
+        ch->ExpandLayout(EnChar::TOP_MARGIN);
+        return CheckHeight(cl, ch);
+      }
+    }
+  }
+  return false;
 }
 
 void ConnCompBased::PrintTextLineStyle(AttrEnCharLine* tl) {
   CharConstItr end = tl->clist().end();
-  cout << "text line style: ";
+  cout << "char line style: ";
   for (CharConstItr itr = tl->clist().begin(); itr != end; ++itr) {
     cout << EnChar::GetStyleName(static_cast<EnChar*>(*itr)->style());
   }
@@ -205,17 +360,12 @@ void ConnCompBased::PrintTextLineStyle(AttrEnCharLine* tl) {
 void ConnCompBased::FindIntervalSortedCandidates(AttrEnCharLine* tl,
                                                  CCItr begin, CCItr end,
                                                  vector<CCItr>* candidates) {
-  for (; begin != end; ++begin) {
-    if (!(*begin)->valid()) {
-      continue;
+  for (; begin != end && InSearchStripe(tl, *begin); ++begin) {
+    if ((*begin)->valid() && HasProperInterval(tl, *begin)
+        && HasProperWH(tl, *begin)
+        && HasAcceptableVerticalShift(tl->NeighborChar(*begin), *begin)) {
+      candidates->push_back(begin);
     }
-    if (!IsInSearchScope(tl, *begin)) {
-      break;
-    }
-    if (tl->CalcInterval(*begin) > (*begin)->Height() / 1.5) {
-      continue;
-    }
-    candidates->push_back(begin);
   }
   sort(candidates->begin(), candidates->end(), [&](CCItr it1, CCItr it2) {
     int dist1 =
@@ -226,109 +376,6 @@ void ConnCompBased::FindIntervalSortedCandidates(AttrEnCharLine* tl,
     (*it2)->x1() - tl->x2() : tl->x1() - (*it2)->x2();
     return dist1 < dist2;
   });
-}
-
-bool ConnCompBased::CheckStyle(CharLine* cl, Char* ch) {
-  AttrEnCharLine* ch_line = static_cast<AttrEnCharLine*>(cl);
-  const EnChar* neib = static_cast<const EnChar*>(ch_line->NeighborChar(ch));
-  EnChar* ench = static_cast<EnChar*>(ch);
-  if (MatchY1(neib, ench) && MatchY2(neib, ench)) {
-    ench->set_style(neib->style());
-    return true;
-  }
-
-  const double kDiffRatioThres = 1.1;
-  int y2diff = ch->y2() - neib->y2();
-  int y1diff = ch->y1() - neib->y1();
-  if (MatchY1(neib, ench)) {
-    if (abs(y2diff) < min(ch->Height(), neib->Height()) * kDiffRatioThres) {
-      if (y2diff < 0) {
-        if (neib->style() == EnChar::STYLEa
-            || neib->style() == EnChar::STYLEh) {
-          ench->set_style(neib->style());
-          ch_line->UpdateLayout(EnChar::BOTTOM_MARGIN);
-          return true;
-        }
-        if (neib->style() == EnChar::STYLEy
-            || neib->style() == EnChar::STYLEf) {
-          ench->set_style(
-              EnChar::ParseStyle(neib->style() & ~EnChar::BOTTOM_MARGIN));
-          return true;
-        }
-      } else if (neib->style() == EnChar::STYLEa
-          || neib->style() == EnChar::STYLEh) {
-        ench->set_style(neib->style());
-        ench->UpdateLayout(EnChar::BOTTOM_MARGIN);
-        return true;
-      }
-    }
-  } else if (MatchY2(neib, ench)) {
-    if (abs(y1diff) < min(ch->Height(), neib->Height()) * kDiffRatioThres) {
-      if (y1diff > 0) {
-        if (neib->style() == EnChar::STYLEa
-            || neib->style() == EnChar::STYLEy) {
-          ench->set_style(neib->style());
-          ch_line->UpdateLayout(EnChar::TOP_MARGIN);
-          return true;
-        }
-        if (neib->style() == EnChar::STYLEh
-            || neib->style() == EnChar::STYLEf) {
-          ench->set_style(
-              EnChar::ParseStyle(neib->style() & ~EnChar::TOP_MARGIN));
-          return true;
-        }
-      } else if (neib->style() == EnChar::STYLEa
-          || neib->style() == EnChar::STYLEy) {
-        ench->set_style(neib->style());
-        ench->UpdateLayout(EnChar::TOP_MARGIN);
-        return true;
-      }
-    }
-  } else {
-    const int kDiffHThres = min(ch->Height(), ch_line->min_char_h())
-        * ((cl->CharNum() == 1 && ch->x2() > cl->x2()) ? 0.8 : 1.1);
-    if (abs(y1diff) < kDiffHThres && abs(y2diff) < kDiffHThres) {
-      if (y1diff < 0 && y2diff > 0 && neib->style() == EnChar::STYLEa) {
-        ench->set_style(EnChar::STYLEf);
-        return true;
-      }
-      if (y1diff > 0 && y2diff > 0) {
-        if (neib->style() == EnChar::STYLEh) {
-          ench->set_style(EnChar::STYLEy);
-          return true;
-        }
-        if (neib->style() == EnChar::STYLEa) {
-          ench->set_style(EnChar::STYLEy);
-          ch_line->UpdateLayout(EnChar::TOP_MARGIN);
-          return true;
-        }
-      }
-      if (y1diff < 0 && y2diff < 0) {
-        if (neib->style() == EnChar::STYLEy) {
-          ench->set_style(EnChar::STYLEh);
-          return true;
-        }
-        if (neib->style() == EnChar::STYLEa) {
-          ch_line->UpdateLayout(EnChar::BOTTOM_MARGIN);
-          ench->set_style(EnChar::STYLEh);
-          return true;
-        }
-      }
-      if (y1diff > 0 && y2diff < 0) {
-        if (neib->style() == EnChar::STYLEf) {
-          ench->set_style(EnChar::STYLEa);
-          return true;
-        }
-        if (neib->style() == EnChar::STYLEa) {
-          ch_line->UpdateLayout(EnChar::TOP_MARGIN);
-          ch_line->UpdateLayout(EnChar::BOTTOM_MARGIN);
-          ench->set_style(EnChar::STYLEa);
-          return true;
-        }
-      }
-    }
-  }
-  return false;
 }
 
 void ConnCompBased::BuildCCMap(Mat* map, Size map_size, CCItr begin,
@@ -404,9 +451,9 @@ void ConnCompBased::OverlapAnalyse(list<TextLine*>* tllist) {
 
 CharLine* ConnCompBased::CreateAttrEnCharLine(CharConstItr begin,
                                               CharConstItr end) {
-  CharLine* cl = new CharLine();
-  for (; begin != end; ++begin) {
-    cl->AddChar(new AttrEnChar(static_cast<EnChar*>(*begin)->GetCC()));
+  CharLine* cl = new CharLine(*begin);
+  for (++begin; begin != end; ++begin) {
+    cl->AddChar(new EnChar(static_cast<EnChar*>(*begin)->GetCC()));
   }
   return cl;
 }
@@ -464,4 +511,38 @@ void ConnCompBased::SplitCharLine(list<TextLine*>* tllist) {
       ++itr;
     }
   }
+}
+
+void ConnCompBased::FillConnComp(Mat* rgb, const ConnComp* cc, Scalar bgr) {
+  for (Pixel* pix : cc->pix_vec()) {
+    Vec3b* ptr = rgb->ptr<Vec3b>(pix->pos().y, pix->pos().x);
+    (*ptr)[0] = bgr[0];
+    (*ptr)[1] = bgr[1];
+    (*ptr)[2] = bgr[2];
+  }
+}
+
+bool ConnCompBased::HilightCharLine(const Mat& gray, const CharLine* cl,
+                                    Scalar bgr) {
+  Mat color;
+  cvtColor(gray, color, CV_GRAY2BGR);
+  for (Char* ch : cl->clist()) {
+    for (ConnComp* cc : ch->cclist()) {
+      FillConnComp(&color, cc, bgr);
+    }
+  }
+  return TestUtils::ShowImage(color);
+}
+
+bool ConnCompBased::HilightClAndCC(const Mat& gray, const CharLine* cl,
+                                   const ConnComp* cc, Scalar bgr) {
+  Mat color;
+  cvtColor(gray, color, CV_GRAY2BGR);
+  for (Char* ch : cl->clist()) {
+    for (ConnComp* acc : ch->cclist()) {
+      FillConnComp(&color, acc, bgr);
+    }
+  }
+  FillConnComp(&color, cc, Scalar(255, 255, 255) - bgr);
+  return TestUtils::ShowImage(color);
 }

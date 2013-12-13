@@ -40,11 +40,11 @@ bool PRINT_LOG_ = true;
 bool SHOW_GRAY_ = true;
 bool SHOW_PRECOMPUTED_RESULT_ = true;
 bool SHOW_RESPONSE_ = !true;
-bool SHOW_GROUP_STEP_ = !true;
+bool SHOW_GROUP_STEP_ = true;
 bool SHOW_GROUPED_RESULT_ = true;
 bool SHOW_FINAL_ = true;
 bool SPLIT_CHAR_LINE_ = true;
-bool SAVE_RESULT_INTERACTION_ = !true;
+bool SAVE_RESULT_INTERACTION_ = true;
 
 double THRESHOLD_;
 
@@ -97,10 +97,6 @@ void ReleaseList(list<TextLine*>* tllist) {
   tllist->clear();
 }
 
-void EvaluatePrecomputedResult() {
-
-}
-
 void PrintProgress(int count, int size) {
   cout << "Progress:" << (float) count * 100 / size << "%" << endl;
 }
@@ -143,7 +139,7 @@ int main(int argc, char** argv) {
       continue;
     }
 
-    if (it->compare("107.jpg") < 0) {
+    if (it->compare("116.jpg") < 0) {
       continue;
     }
     THRESHOLD_ = 3;

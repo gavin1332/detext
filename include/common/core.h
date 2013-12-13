@@ -144,7 +144,7 @@ class ConnComp : public Region {
     return (double) PixelNum() / (Width() * Height());
   }
 
-  std::vector<Pixel*>& pix_vec() {
+  const std::vector<Pixel*>& pix_vec() const {
     return pix_vec_;
   }
 
@@ -269,7 +269,7 @@ class EnChar : public Char {
   void set_style(Style style) {
     style_ = style;
   }
-  void UpdateLayout(Layout layout) {
+  void ExpandLayout(Layout layout) {
     style_ = EnChar::ParseStyle(style_ | layout);
   }
 
@@ -332,11 +332,12 @@ typedef std::list<TextLine*>::iterator TextLineItr;
 
 class CharLine : public TextLine {
  public:
-  CharLine()
-      : TextLine(INT_MAX, INT_MAX, 0, 0),
-        max_char_h_(0),
-        min_char_h_(INT_MAX),
-        max_char_w_(0) {
+  CharLine(Char* ch)
+      : TextLine(ch->x1(), ch->y1(), ch->x2(), ch->y2()),
+        max_char_h_(ch->Height()),
+        min_char_h_(ch->Height()),
+        max_char_w_(ch->Width()) {
+    clist_.push_back(ch);
   }
   ~CharLine();
 
@@ -371,11 +372,9 @@ class CharLine : public TextLine {
   void MedianY12(int* my1, int* my2) const;
 
   int CalcInterval(const Region* cc) const {
-    if (cc->x2() < x1() || cc->x1() > x2()) {
-      return std::min(abs(x1() - cc->x2()), abs(x2() - cc->x1()));
-    } else {
-      return 0;
-    }
+    int left = x1() - cc->x2();
+    int right = cc->x1() - x2();
+    return abs(left) < abs(right) ? left : right;
   }
 
   bool Contains(const Region* cc) const {
@@ -411,8 +410,8 @@ class CharLine : public TextLine {
 
 class ConnCompLine : public CharLine {
  public:
-  ConnCompLine()
-      : CharLine() {
+  ConnCompLine(ConnComp* cc)
+      : CharLine(new CombChar(cc)) {
   }
   ~ConnCompLine() {
   }
@@ -421,8 +420,6 @@ class ConnCompLine : public CharLine {
   bool AddConnComp(ConnComp* cc);
 
  protected:
-  std::list<Char*> clist_;
-
   // Check whether the chars before the forward iterator "fit" is width covered,
   // Swallow them if covered and value "true" is returned, false otherwise
   bool CheckWidthCoverage(CharItr fit);

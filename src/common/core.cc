@@ -149,6 +149,7 @@ void CharLine::AddChar(Char* ch) {
   itr = clist_.insert(itr, ch);
 }
 
+// TODO: part of CharLine's parameters are not updated
 bool ConnCompLine::AddConnComp(ConnComp* cc) {
   x1_ = min(x1_, cc->x1());
   y1_ = min(y1_, cc->y1());

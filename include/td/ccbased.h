@@ -37,14 +37,9 @@ class AttrConnComp : public ConnComp {
  public:
   AttrConnComp()
       : ConnComp(),
-        median_gray_(0),
         upright_(false) {
   }
   virtual ~AttrConnComp() {
-  }
-
-  uchar median_gray() const {
-    return median_gray_;
   }
 
   bool upright() const {
@@ -56,7 +51,6 @@ class AttrConnComp : public ConnComp {
  private:
   static const int kCrossVarNum = 3;
 
-  uchar median_gray_;
   bool upright_;
 
   static bool PixGrayCompare(const Pixel* p1, const Pixel* p2) {
@@ -68,29 +62,17 @@ class AttrConnComp : public ConnComp {
 
 };
 
-class AttrEnChar : public EnChar {
- public:
-  AttrEnChar(ConnComp* cc)
-      : EnChar(cc) {
-  }
-
-  uchar median_gray() const {
-    return static_cast<const AttrConnComp*>(GetCC())->median_gray();
-  }
-
-};
-
 class AttrEnCharLine : public CharLine {
  public:
-  AttrEnCharLine(Polarity polarity)
-      : CharLine(),
+  AttrEnCharLine(EnChar* ch, Polarity polarity)
+      : CharLine(ch),
         polarity_(polarity),
         valid_(true),
-        median_gray_mean_(0),
         style_(EnChar::STYLEa),
-        top_margin_(kUndifined),
-        middle_height_(kUndifined),
-        bottom_margin_(kUndifined) {
+        est_a_height_(ch->Height()),
+        est_h_height_(0),
+        est_y_height_(0),
+        est_f_height_(0) {
   }
 
   Polarity polarity() const {
@@ -104,31 +86,41 @@ class AttrEnCharLine : public CharLine {
     valid_ = false;
   }
 
-  uchar median_gray_mean() const {
-    return median_gray_mean_;
+  int est_a_height() const {
+    return est_a_height_;
+  }
+  int est_h_height() const {
+    return est_h_height_;
+  }
+  int est_y_height() const {
+    return est_y_height_;
+  }
+  int est_f_height() const {
+    return est_f_height_;
   }
 
   EnChar::Style style() const {
     return style_;
   }
-  void UpdateLayout(EnChar::Layout layout);
+  void ExpandLayout(EnChar::Layout layout);
 
   void AddChar(EnChar* ch);
 
   bool CheckValidation();
 
  private:
-  const static int kUndifined = -1;
   const Polarity polarity_;
   bool valid_;
-  uchar median_gray_mean_;
 
   EnChar::Style style_;
-  int top_margin_;
-  int middle_height_;
-  int bottom_margin_;
+  int est_a_height_;
+  int est_h_height_;
+  int est_y_height_;
+  int est_f_height_;
 
   bool AreMostUpright() const;
+
+  void UpdateEstHeight(EnChar* ch);
 
 };
 
@@ -160,11 +152,40 @@ class ConnCompBased : public TextDetector {
     return cc1->y1() < cc2->y1();
   }
 
-  bool IsInSearchScope(const CharLine* tr, const ConnComp* ch) const {
-    return ch->y1() < tr->y2() - tr->max_char_h() / 3;
+  bool InSearchStripe(const CharLine* tl, const ConnComp* ch) const {
+    return ch->y1() < tl->y2() - tl->max_char_h() / 3;
   }
 
-  bool CheckStyle(CharLine* tr, Char* ch);
+  bool HasProperInterval(const CharLine* tl, const ConnComp* ch) const {
+    int interval = tl->CalcInterval(ch);
+    if (interval >= 0) {
+      return interval < std::min(tl->min_char_h(), ch->Height()) / 1.5;
+    } else {
+      return -interval < tl->max_char_w() / 1.9;
+    }
+  }
+
+  // TODO: not applicable for icdar2011 325.jpg
+  bool HasProperWH(const CharLine* tl, const ConnComp* ch) const {
+    return ch->Width() < tl->min_char_h() * 2
+        && ch->Height() < tl->min_char_h() * 3.0
+        && ch->Height() > tl->max_char_h() / 3.0;
+  }
+
+  bool HasAcceptableVerticalShift(const Char* ch, const Region* rg) const {
+    int ady1 = abs(ch->y1() - rg->y1());
+    int ady2 = abs(ch->y2() - rg->y2());
+    return MatchY1(ch, rg) || MatchY2(ch, rg)
+        || (double) std::max(ady1, ady2) / std::min(ady1, ady2) < 1.8;
+  }
+
+  bool CheckLayout(AttrEnCharLine* cl, EnChar* ch);
+
+  bool StrictMatchHeight(int h1, int h2) const {
+    return abs(h1 - h2) < std::min(h1, h2) / 6.5;
+  }
+
+  bool CheckHeight(AttrEnCharLine* cl, EnChar* ch);
 
   bool MatchY1(const Region* r1, const Region* r2) const {
     return abs(r1->y1() - r2->y1()) < std::min(r1->Height(), r2->Height()) / 4.7;
@@ -176,12 +197,21 @@ class ConnCompBased : public TextDetector {
 
   bool IsOverlapped(TextLine* tl1, TextLine* tl2) const;
 
-  void FindIntervalSortedCandidates(AttrEnCharLine* tl, CCItr begin, CCItr end,
-                            std::vector<CCItr>* candidates);
+  void FindIntervalSortedCandidates(AttrEnCharLine* cl, CCItr begin, CCItr end,
+                                    std::vector<CCItr>* candidates);
 
   void PrintTextLineStyle(AttrEnCharLine* tl);
 
   CharLine* CreateAttrEnCharLine(CharConstItr begin, CharConstItr end);
+
+  bool HilightCharLine(const cv::Mat& gray, const CharLine* cl, cv::Scalar bgr =
+                           cv::Scalar(0, 0, 255));
+
+  bool HilightClAndCC(const cv::Mat& gray, const CharLine* cl,
+                      const ConnComp* cc,
+                      cv::Scalar bgr = cv::Scalar(0, 0, 255));
+
+  void FillConnComp(cv::Mat* rgb, const ConnComp* cc, cv::Scalar bgr);
 
 };
 
