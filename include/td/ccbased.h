@@ -167,7 +167,7 @@ class ConnCompBased : public TextDetector {
 
   // TODO: not applicable for icdar2011 325.jpg
   bool HasProperWH(const CharLine* tl, const ConnComp* ch) const {
-    return ch->Width() < tl->min_char_h() * 2
+    return ch->Width() < tl->min_char_h() * 2.4
         && ch->Height() < tl->min_char_h() * 3.0
         && ch->Height() > tl->max_char_h() / 3.0;
   }
@@ -202,7 +202,7 @@ class ConnCompBased : public TextDetector {
 
   void PrintTextLineStyle(AttrEnCharLine* tl);
 
-  CharLine* CreateAttrEnCharLine(CharConstItr begin, CharConstItr end);
+  CharLine* CreateCharLine(CharConstItr begin, CharConstItr end);
 
   bool HilightCharLine(const cv::Mat& gray, const CharLine* cl, cv::Scalar bgr =
                            cv::Scalar(0, 0, 255));

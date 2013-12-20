@@ -35,7 +35,7 @@ extern bool SPLIT_CHAR_LINE_;
 
 extern double THRESHOLD_;
 
-bool EVALUATE_PRECOMPUTED_RESULT_ = !true;
+bool EVALUATE_PRECOMPUTED_RESULT_ = true;
 bool PRINT_LOG_ = true;
 bool SHOW_GRAY_ = true;
 bool SHOW_PRECOMPUTED_RESULT_ = true;
@@ -139,10 +139,15 @@ int main(int argc, char** argv) {
       continue;
     }
 
-    if (it->compare("116.jpg") < 0) {
+    // 145, 184, 186, 187, 188, 364, 371 and 398 is very hard
+    if (it->compare("400.jpg") < 0) {
       continue;
     }
-    THRESHOLD_ = 3;
+    THRESHOLD_ = 5;
+    SHOW_RESPONSE_ = !true;
+    SHOW_GROUP_STEP_ = true;
+    SPLIT_CHAR_LINE_ = true;
+    SAVE_RESULT_INTERACTION_ = true;
 
     Mat img = imread(img_path, CV_LOAD_IMAGE_COLOR);
     if (SHOW_PRECOMPUTED_RESULT_) {

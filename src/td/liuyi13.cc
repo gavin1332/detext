@@ -18,6 +18,9 @@ void LiuYi13::Detect(const cv::Mat& img, std::list<TextLine*>* tllist) {
 
   Mat gray;
   cvtColor(img, gray, CV_BGR2GRAY);
+//  Mat channel[3];
+//  cv::split(img, channel);
+//  gray = channel[0];
   if (SHOW_GRAY_) {
     TestUtils::ShowImage(gray);
   }
@@ -98,7 +101,7 @@ void LiuYi13::ParseResp(const Mat& gray, const Mat* resp, Mat* resp_mask,
       }
 
       Rect rect;
-      floodFill(mask[i], itr.pos(), Const::kMark, &rect, 0, 0, 8);
+      floodFill(mask[i], itr.pos(), Const::kMark, &rect, 0, 0, 4);
       ConnComp* cc = new AttrConnComp();
       for (int y = 0; y < rect.height; ++y) {
         uchar* mask_ptr = mask[i].ptr<uchar>(rect.y + y, rect.x);
@@ -113,7 +116,7 @@ void LiuYi13::ParseResp(const Mat& gray, const Mat* resp, Mat* resp_mask,
         }
       }
       cclist[i].push_back(cc);
-      floodFill(mask[i], itr.pos(), 0, &rect, 0, 0, 8);
+      floodFill(mask[i], itr.pos(), 0, &rect, 0, 0, 4);
     }
   }
 }

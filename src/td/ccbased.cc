@@ -16,8 +16,8 @@ using namespace dtxt;
 void AttrConnComp::CheckValidation() {
   if (AspectRatio() < 0.45 && AreaRatio() > 0.7) {
     upright_ = true;
-  } else if (Height() < 10 || Height() > 355 || PixelNum() < 50) {
-    // TODO: PixelNum() < 50 is too small
+  } else if (Height() < 9 || Height() > 355 || PixelNum() < 35) {
+    // TODO: PixelNum() < 35 is too small
     Invalidate();
   } else if (AspectRatio() > 2 || AspectRatio() < 0.1) {
     Invalidate();
@@ -167,14 +167,12 @@ void ConnCompBased::GroupConnComp(const Mat& resp_mask, list<ConnComp*>* cclist,
 
         EnChar* ch = new EnChar(**inner);
         if (!CheckLayout(tl, ch)) {
-          delete ch;
           TestUtils::Log("conflicted char style");
 
           // TODO: Refine
           if ((tl->style() != EnChar::STYLEa && tl->CharNum() <= 3)
               || (tl->style() == EnChar::STYLEf && tl->CharNum() <= 4)) {
             tl->Invalidate();
-            break;
           }
           continue;
         }
@@ -209,6 +207,7 @@ void ConnCompBased::GroupConnComp(const Mat& resp_mask, list<ConnComp*>* cclist,
 }
 
 bool ConnCompBased::CheckHeight(AttrEnCharLine* cl, EnChar* ch) {
+  return true;
   int est_height = 0;
   switch (ch->style()) {
     case EnChar::STYLEa:
@@ -435,7 +434,8 @@ void ConnCompBased::OverlapAnalyse(list<TextLine*>* tllist) {
 //        it_erased = true;
 //        break;
 //      }
-      if (itl->CharNum() > jtl->CharNum()) {
+      // TODO: Fix equal condition
+      if (itl->CharNum() >= jtl->CharNum()) {
         jt = tllist->erase(jt);
       } else {
         it = tllist->erase(it);
@@ -449,8 +449,9 @@ void ConnCompBased::OverlapAnalyse(list<TextLine*>* tllist) {
   }
 }
 
-CharLine* ConnCompBased::CreateAttrEnCharLine(CharConstItr begin,
+CharLine* ConnCompBased::CreateCharLine(CharConstItr begin,
                                               CharConstItr end) {
+  assert(begin != end);
   CharLine* cl = new CharLine(*begin);
   for (++begin; begin != end; ++begin) {
     cl->AddChar(new EnChar(static_cast<EnChar*>(*begin)->GetCC()));
@@ -483,17 +484,17 @@ void ConnCompBased::SplitCharLine(list<TextLine*>* tllist) {
     for (++bit; bit != end; ait = bit++) {
       int interval = (*bit)->x1() - (*ait)->x2();
       if (interval > kIntervalThres) {
-        tllist->insert(itr, CreateAttrEnCharLine(begin, bit));
+        tllist->insert(itr, CreateCharLine(begin, bit));
         begin = bit;
       }
     }
 
     if (begin != clist.begin()) {
       if (begin != end) {
-        tllist->insert(itr, CreateAttrEnCharLine(begin, end));
+        tllist->insert(itr, CreateCharLine(begin, end));
       }
       cout << "split " << (cl)->ToString() << endl;
-      delete cl;
+//      delete cl;
       itr = tllist->erase(itr);
     } else {
       ++itr;
@@ -505,7 +506,7 @@ void ConnCompBased::SplitCharLine(list<TextLine*>* tllist) {
     CharLine* cl = static_cast<CharLine*>(*itr);
     if (cl->CharNum() == 1) {
       TestUtils::Log("Remove single char", (*itr)->ToString());
-      delete *itr;
+//      delete *itr;
       itr = tllist->erase(itr);
     } else {
       ++itr;
