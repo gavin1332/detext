@@ -20,37 +20,10 @@ using namespace std;
 using namespace cv;
 using namespace dtxt;
 
-namespace dtxt {
-
-extern bool EVALUATE_PRECOMPUTED_RESULT_;
-extern bool PRINT_LOG_;
-extern bool SHOW_PRECOMPUTED_RESULT_;
-extern bool SHOW_GRAY_;
-extern bool SHOW_RESPONSE_;
-extern bool SHOW_GROUP_STEP_;
-extern bool SHOW_GROUPED_RESULT_;
-extern bool SHOW_FINAL_;
-extern bool SAVE_RESULT_INTERACTION_;
-extern bool SPLIT_CHAR_LINE_;
-
-extern double THRESHOLD_;
-
-bool EVALUATE_PRECOMPUTED_RESULT_ = true;
-bool PRINT_LOG_ = true;
-bool SHOW_GRAY_ = true;
-bool SHOW_PRECOMPUTED_RESULT_ = true;
-bool SHOW_RESPONSE_ = !true;
-bool SHOW_GROUP_STEP_ = true;
-bool SHOW_GROUPED_RESULT_ = true;
-bool SHOW_FINAL_ = true;
-bool SPLIT_CHAR_LINE_ = true;
-bool SAVE_RESULT_INTERACTION_ = true;
-
-double THRESHOLD_;
-
-}
-
 void InstantProcess::Run() {
+  extern bool SHOW_PRECOMPUTED_RESULT_;
+  extern bool SAVE_RESULT_INTERACTION_;
+
   const string& data_dir = dataset_->test_data_dir();
 
   vector<string> filename_vec;
@@ -62,29 +35,16 @@ void InstantProcess::Run() {
   for (const string& filename : filename_vec) {
     const string img_path = data_dir + "/" + filename;
     TestUtils::Print(img_path);
-    ++count;
-    PrintProgress(count, total_file);
+    PrintProgress(++count, total_file);
 
     // 145, 184, 186, 187, 188, 364, 371 and 398 is very hard
-    if (filename.compare("145.jpg") < 0) {
+    if (filename.compare("101.jpg") < 0) {
       continue;
     }
-    THRESHOLD_ = 5;
-    SHOW_RESPONSE_ = !true;
-    SHOW_GROUP_STEP_ = true;
-    SPLIT_CHAR_LINE_ = true;
-    SAVE_RESULT_INTERACTION_ = true;
 
     Mat img = imread(img_path, CV_LOAD_IMAGE_COLOR);
-    if (SHOW_PRECOMPUTED_RESULT_) {
-      list<TextLine*> tllist;
-      dataset_->RetrieveTextLines(filename, &tllist);
-      bool jump = IntegrateUtils::ShowTextLines("Jump to the next? [y/n]", img,
-                                                tllist);
-      IntegrateUtils::ReleaseList(&tllist);
-      if (jump) {
-        continue;
-      }
+    if (SHOW_PRECOMPUTED_RESULT_ && ShowPreComputedResult(img, filename)) {
+      continue;
     }
 
     double zoom = 1;
@@ -96,23 +56,14 @@ void InstantProcess::Run() {
     list<TextLine*>* estlist = new list<TextLine*>;
     detector_->Detect(img, estlist);
     if (zoom < 1) {
-      list<TextLine*>* new_estlist = new list<TextLine*>;
-      for (TextLine* tl : *estlist) {
-        new_estlist->push_back(tl->NewZoomedTextLine(1 / zoom));
-      }
-      IntegrateUtils::ReleaseList(estlist);
-      delete estlist;
-      estlist = new_estlist;
+      ZoomTextLine(&estlist, 1 / zoom);
     }
     dataset_->IncEvaluate(filename, *estlist);
 
-    if (SAVE_RESULT_INTERACTION_) {
-      if (IntegrateUtils::ShowTextLines("Save result? [y/n]", img, *estlist)) {
-        dataset_->SaveEstResult(filename, *estlist);
-        TestUtils::Print("Saved estimated rectangles");
-      } else {
-        TestUtils::Print("Result is not saved");
-      }
+    if (SAVE_RESULT_INTERACTION_
+        && IntegrateUtils::ShowTextLines("Save result? [y/n]", img, *estlist)) {
+      dataset_->SaveEstResult(filename, *estlist);
+      TestUtils::Print("Estimated results saved");
     }
 
     IntegrateUtils::ReleaseList(estlist);
@@ -120,6 +71,26 @@ void InstantProcess::Run() {
   }
 
   Report(exe_time);
+}
+
+void InstantProcess::ZoomTextLine(list<TextLine*>** estlist, double factor) {
+  list<TextLine*>* new_estlist = new list<TextLine*>;
+  for (TextLine* tl : **estlist) {
+    new_estlist->push_back(tl->NewZoomedTextLine(factor));
+  }
+  IntegrateUtils::ReleaseList(*estlist);
+  delete *estlist;
+  *estlist = new_estlist;
+}
+
+bool InstantProcess::ShowPreComputedResult(const Mat& img,
+                                           const string& filename) {
+  list<TextLine*> tllist;
+  dataset_->RetrieveTextLines(filename, &tllist);
+  bool jump = IntegrateUtils::ShowTextLines("Jump to the next? [y/n]", img,
+                                            tllist);
+  IntegrateUtils::ReleaseList(&tllist);
+  return jump;
 }
 
 void InstantProcess::Report(double exec_time) {

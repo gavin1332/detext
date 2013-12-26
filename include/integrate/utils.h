@@ -12,11 +12,11 @@ namespace dtxt {
 class IntegrateUtils {
  public:
   static bool ShowTextLines(const std::string& title, const cv::Mat& gray_rgb,
-                            const std::list<dtxt::TextLine*>& tllist,
-                            cv::Scalar bgr = cv::Scalar(255, 255, 255),
+                            const std::list<TextLine*>& tllist, cv::Scalar bgr =
+                                cv::Scalar(255, 255, 255),
                             int thickness = 2);
 
-  static void ReleaseList(std::list<dtxt::TextLine*>* tllist);
+  static void ReleaseList(std::list<TextLine*>* tllist);
 
  private:
   IntegrateUtils();

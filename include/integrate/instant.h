@@ -23,6 +23,10 @@ class InstantProcess : public OfflineProcess {
 
   void Report(double exec_time);
 
+  bool ShowPreComputedResult(const cv::Mat& img, const std::string& filename);
+
+  void ZoomTextLine(std::list<TextLine*>** estlist, double factor);
+
 };
 
 }

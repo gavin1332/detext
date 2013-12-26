@@ -28,9 +28,9 @@ class ICDAR2005 : public DataSet {
     return est_data_dir_;
   }
 
-  std::list<dtxt::TextLine*>* RetrieveTgtList(const std::string& img_path);
+  std::list<TextLine*>* RetrieveTgtList(const std::string& img_path);
 
-  void PostProcess(std::list<dtxt::TextLine*>** tgtlist) {
+  void PostProcess(std::list<TextLine*>** tgtlist) {
   }
 
   void RetrieveImgIds(std::vector<std::string>* idlist);
@@ -38,7 +38,7 @@ class ICDAR2005 : public DataSet {
  private:
   std::string test_data_dir_;
   std::string est_data_dir_;
-  std::map<std::string, std::list<dtxt::TextLine*>*> T_list_map_;
+  std::map<std::string, std::list<TextLine*>*> T_list_map_;
 
   void InitTListMap();
 

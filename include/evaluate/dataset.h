@@ -33,14 +33,12 @@ class DataSet {
     evaluator_.Report(precision, recall, f_measure);
   }
 
-  void IncEvaluate(const std::string& id,
-                   const std::list<dtxt::TextLine*>& estlist);
+  void IncEvaluate(const std::string& id, const std::list<TextLine*>& estlist);
 
   void SaveEstResult(const std::string& id,
-                     const std::list<dtxt::TextLine*>& estlist);
+                     const std::list<TextLine*>& estlist);
 
-  void RetrieveTextLines(const std::string& id,
-                         std::list<dtxt::TextLine*>* tllist);
+  void RetrieveTextLines(const std::string& id, std::list<TextLine*>* tllist);
 
   virtual void RetrieveImgIds(std::vector<std::string>* idlist) = 0;
 
@@ -48,10 +46,9 @@ class DataSet {
   std::string base_dir_;
   Evaluator evaluator_;
 
-  virtual std::list<dtxt::TextLine*>* RetrieveTgtList(
-      const std::string& id) = 0;
+  virtual std::list<TextLine*>* RetrieveTgtList(const std::string& id) = 0;
 
-  virtual void PostProcess(std::list<dtxt::TextLine*>** tgtlist) = 0;
+  virtual void PostProcess(std::list<TextLine*>** tgtlist) = 0;
 
  private:
   static const std::string RESULT_POSTFIX;

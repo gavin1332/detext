@@ -27,8 +27,8 @@ class Evaluator {
 
   void Report(double* precision, double* recall, double* f_measure);
 
-  void IncRecord(const std::list<dtxt::TextLine*>& estlist,
-                 const std::list<dtxt::TextLine*>& tgtlist);
+  void IncRecord(const std::list<TextLine*>& estlist,
+                 const std::list<TextLine*>& tgtlist);
 
  private:
   static const double kAlpha;
@@ -38,10 +38,10 @@ class Evaluator {
   int est_count_;
   int tgt_count_;
 
-  double CalcMatch(const dtxt::TextLine& input, const dtxt::TextLine& base);
+  double CalcMatch(const TextLine& input, const TextLine& base);
 
-  double CalcMatch(const dtxt::TextLine& input,
-                   const std::list<dtxt::TextLine*>& base_list);
+  double CalcMatch(const TextLine& input,
+                   const std::list<TextLine*>& base_list);
 
 };
 

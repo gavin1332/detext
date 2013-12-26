@@ -26,9 +26,9 @@ class ICDAR2011 : public DataSet {
     return est_data_dir_;
   }
 
-  std::list<dtxt::TextLine*>* RetrieveTgtList(const std::string& img_path);
+  std::list<TextLine*>* RetrieveTgtList(const std::string& img_path);
 
-  void PostProcess(std::list<dtxt::TextLine*>** tgtlist);
+  void PostProcess(std::list<TextLine*>** tgtlist);
 
   void RetrieveImgIds(std::vector<std::string>* idlist);
 
