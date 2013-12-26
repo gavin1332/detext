@@ -10,8 +10,8 @@ class Evaluator {
   Evaluator()
       : precision_match_accum_(0),
         recall_match_accum_(0),
-        E_count_(0),
-        T_count_(0) {
+        est_count_(0),
+        tgt_count_(0) {
   }
   virtual ~Evaluator() {
   }
@@ -19,27 +19,27 @@ class Evaluator {
   void Clear() {
     precision_match_accum_ = 0;
     recall_match_accum_ = 0;
-    E_count_ = 0;
-    T_count_ = 0;
+    est_count_ = 0;
+    tgt_count_ = 0;
   }
 
-  void Report(float* precision, float* recall, float* f_measure);
+  void Report(double* precision, double* recall, double* f_measure);
 
-  void RecordMatch(const std::list<dtxt::TextLine*>& E_list,
-                   const std::list<dtxt::TextLine*>& T_list);
+  void RecordMatch(const std::list<dtxt::TextLine*>& estlist,
+                   const std::list<dtxt::TextLine*>& tgtlist);
 
  private:
   static const float kAlpha;
 
   float precision_match_accum_;
   float recall_match_accum_;
-  int E_count_;
-  int T_count_;
+  int est_count_;
+  int tgt_count_;
 
-  float CalcMatch(const dtxt::TextLine& input, const dtxt::TextLine& base);
+  double CalcMatch(const dtxt::TextLine& input, const dtxt::TextLine& base);
 
-  float CalcMatch(const dtxt::TextLine& input,
-                  const std::list<dtxt::TextLine*>& base_list);
+  double CalcMatch(const dtxt::TextLine& input,
+                   const std::list<dtxt::TextLine*>& base_list);
 
 };
 

@@ -9,9 +9,9 @@ using namespace dtxt;
 
 const float Evaluator::kAlpha = 0.5f;
 
-void Evaluator::Report(float* precision, float* recall, float* f_measure) {
-  *precision = (E_count_ == 0)? 0 : precision_match_accum_ / E_count_;
-  *recall = (T_count_ == 0)? 1 : recall_match_accum_ / T_count_;
+void Evaluator::Report(double* precision, double* recall, double* f_measure) {
+  *precision = (est_count_ == 0) ? 0 : precision_match_accum_ / est_count_;
+  *recall = (tgt_count_ == 0) ? 1 : recall_match_accum_ / tgt_count_;
   if (MathUtils::IsAbsErr0(*precision) || MathUtils::IsAbsErr0(*recall)) {
     *f_measure = 0;
   } else {
@@ -19,21 +19,19 @@ void Evaluator::Report(float* precision, float* recall, float* f_measure) {
   }
 }
 
-void Evaluator::RecordMatch(const list<TextLine*>& E_list,
-    const list<TextLine*>& T_list) {
-  list<TextLine*>::const_iterator it = E_list.begin();
-  for (; it != E_list.end(); ++it) {
-    precision_match_accum_ += CalcMatch(**it, T_list);
+void Evaluator::RecordMatch(const list<TextLine*>& estlist,
+                            const list<TextLine*>& tgtlist) {
+  for (TextLine* tl : estlist) {
+    precision_match_accum_ += CalcMatch(*tl, tgtlist);
   }
-  E_count_ += E_list.size();
-
-  for (it = T_list.begin(); it != T_list.end(); ++it) {
-    recall_match_accum_ += CalcMatch(**it, E_list);
+  est_count_ += estlist.size();
+  for (TextLine* tl : tgtlist) {
+    recall_match_accum_ += CalcMatch(*tl, estlist);
   }
-  T_count_ += T_list.size();
+  tgt_count_ += tgtlist.size();
 }
 
-float Evaluator::CalcMatch(const TextLine& input, const TextLine& base) {
+double Evaluator::CalcMatch(const TextLine& input, const TextLine& base) {
   int inner_x1 = max(input.x1(), base.x1());
   int inner_y1 = max(input.y1(), base.y1());
   int inner_x2 = min(input.x2(), base.x2());
@@ -48,18 +46,19 @@ float Evaluator::CalcMatch(const TextLine& input, const TextLine& base) {
   int outer_x2 = max(input.x2(), base.x2());
   int outer_y2 = max(input.y2(), base.y2());
 
-  float inner_area = (inner_x2 - inner_x1 + 1)*(inner_y2 - inner_y1 + 1);
-  float outer_area = (outer_x2 - outer_x1 + 1)*(outer_y2 - outer_y1 + 1);
+  double inner_area = (inner_x2 - inner_x1 + 1) * (inner_y2 - inner_y1 + 1);
+  double outer_area = (outer_x2 - outer_x1 + 1) * (outer_y2 - outer_y1 + 1);
 
   return inner_area / outer_area;
 }
 
-float Evaluator::CalcMatch(const TextLine& input, const list<TextLine*>& base_list) {
-  float match = 0;
+double Evaluator::CalcMatch(const TextLine& input,
+                            const list<TextLine*>& base_list) {
+  double match = 0;
   list<TextLine*>::const_iterator it = base_list.begin();
   for (; it != base_list.end(); ++it) {
-    float temp = CalcMatch(input, **it);
-    match = (temp > match)? temp : match;
+    double temp = CalcMatch(input, **it);
+    match = (temp > match) ? temp : match;
   }
 
   return match;
