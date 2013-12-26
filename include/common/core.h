@@ -314,7 +314,7 @@ class TextLine : public Region {
     text_ = text;
   }
 
-  TextLine* TuneRect(float factor) {
+  TextLine* NewZoomedTextLine(float factor) {
     return new TextLine(x1() * factor, y1() * factor, x2() * factor,
                         y2() * factor);
   }

@@ -1,7 +1,5 @@
 #include "common/test.h"
 
-#ifdef INNER_TEST
-
 #include <stdarg.h>
 #include <ctime>
 #include <cctype>
@@ -482,5 +480,3 @@ bool TestUtils::ShowPoints(const Mat& gray_rgb, vector<Point> point_vec,
   }
   return ShowImage(color);
 }
-
-#endif

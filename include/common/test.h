@@ -2,12 +2,11 @@
 #define COMMON_TEST_H_
 
 #include <vector>
+#include <list>
 #include <sstream>
 #include <iostream>
 
 #include <opencv2/core/core.hpp>
-
-#ifdef INNER_TEST
 
 namespace dtxt {
 
@@ -29,19 +28,21 @@ class TestUtils {
   template<typename T>
   static void Log(const std::string& key, const T& value) {
     extern bool PRINT_LOG_;
-    if (PRINT_LOG_) std::cout << "[INFO] " << key << ": " << value << std::endl;
+    if (PRINT_LOG_)
+      std::cout << "[INFO] " << key << ": " << value << std::endl;
   }
 
   // LOG
   template<typename T>
   static void Log(const T& value) {
     extern bool PRINT_LOG_;
-    if (PRINT_LOG_) std::cout << "[INFO] " << value << std::endl;
+    if (PRINT_LOG_)
+      std::cout << "[INFO] " << value << std::endl;
   }
 
   static std::ostream& PrintRect(const cv::Rect& rect) {
-    return std::cout << "Rect(x, y, w, h): (" << rect.x << "," <<
-        rect.y << "," << rect.width << "," << rect.height << ")" << std::endl;
+    return std::cout << "Rect(x, y, w, h): (" << rect.x << "," << rect.y << ","
+                     << rect.width << "," << rect.height << ")" << std::endl;
   }
 
   // @see
@@ -67,7 +68,8 @@ class TestUtils {
   // press ESC: exit program, and report the result when calculating;
   // press space bar or ENTER: close current window.
   // click mouse on the image: print the coordinate of the click position.
-  static bool ShowImage(const char* win_name, const cv::Mat& img, int wait_time);
+  static bool ShowImage(const char* win_name, const cv::Mat& img,
+                        int wait_time);
 
   static const int MAX_IMAGE_NUM = 12;
 
@@ -84,7 +86,7 @@ class TestUtils {
   // Take care of the type of arguments, which should be of Mat with CV_8UC1
   // or CV_8UC3. Otherwise, Error may occur.
   static bool ShowManyImages(const char* win_name, const cv::Mat* img,
-      const int N, int wait_time);
+                             const int N, int wait_time);
 
   // This function illustrates how to show several image in a single window
   //
@@ -123,7 +125,7 @@ class TestUtils {
   // @param const float mag_shield: magnitude shield threshold
   //
   static void ShowGradient(const cv::Mat* grad, float mag_shield,
-      bool white_bg = true);
+                           bool white_bg = true);
 
   // @see void ShowNormedHistogram(const float* data, int len, int zoom)
   static void ShowHistogram(const int* data, int len, int zoom);
@@ -139,55 +141,57 @@ class TestUtils {
 
   // Show rectangle in the given image
   static bool ShowRect(const cv::Mat& gray_rgb, const cv::Rect& rect,
-      cv::Scalar bgr = cv::Scalar(255, 255, 255), int thickness = 1);
+                       cv::Scalar bgr = cv::Scalar(255, 255, 255),
+                       int thickness = 1);
 
   // Show rectangles in the given image
-  static bool ShowRects(const cv::Mat& gray_rgb, const std::vector<cv::Rect>& rect_vec,
-      cv::Scalar bgr = cv::Scalar(255, 255, 255));
+  static bool ShowRects(const cv::Mat& gray_rgb,
+                        const std::vector<cv::Rect>& rect_vec, cv::Scalar bgr =
+                            cv::Scalar(255, 255, 255));
 
   // Show line in the given image
   static bool ShowLine(const cv::Mat& gray_rgb, cv::Point p1, cv::Point p2,
-      cv::Scalar bgr = cv::Scalar(255, 255, 255));
+                       cv::Scalar bgr = cv::Scalar(255, 255, 255));
 
   // Show point in the given image
   static bool ShowPoint(const cv::Mat& gray_rgb, cv::Point point,
-      cv::Scalar bgr = cv::Scalar(255, 255, 255));
+                        cv::Scalar bgr = cv::Scalar(255, 255, 255));
 
   // Show points in the given image
-  static bool ShowPoints(const cv::Mat& gray_rgb, std::vector<cv::Point> point_vec,
-      cv::Scalar bgr = cv::Scalar(255, 255, 255));
+  static bool ShowPoints(const cv::Mat& gray_rgb,
+                         std::vector<cv::Point> point_vec, cv::Scalar bgr =
+                             cv::Scalar(255, 255, 255));
 
   // Crop image by user interaction
   static bool UserDrawRect(const cv::Mat& gray_rgb, cv::Rect* rect);
 
  private:
   typedef struct crop_param {
-  	cv::Point start;
-  	cv::Point end;
-  	bool drawing;
-  	bool finished;
+    cv::Point start;
+    cv::Point end;
+    bool drawing;
+    bool finished;
   } CropParam;
 
   static bool UserInteraction(const char* win_name, const cv::Mat& img,
-      int wait_time);
+                              int wait_time);
 
   // Determine the size of the image and the number of rows/cols
   // from number of arguments in ShowManyImage function
   static void CalcLayout(int argc, int* rows, int* cols, int* inner_size);
 
   static cv::Mat CreateCanvas(int rows, int cols, int inner_size,
-      int inner_space);
+                              int inner_space);
 
   static void Resize2Canvas(const cv::Mat& img, cv::Mat* canvas, cv::Point pos,
                             int inner_size);
 
   static void CmnMouseCallback(int event, int x, int y, int flags, void *param);
 
-  static void CropMouseCallback(int event, int x, int y, int flags, void *param);
+  static void CropMouseCallback(int event, int x, int y, int flags,
+                                void *param);
 };
 
 }
-
-#endif
 
 #endif

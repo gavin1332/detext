@@ -7,7 +7,7 @@
 using namespace std;
 using namespace dtxt;
 
-const float Evaluator::kAlpha = 0.5f;
+const double Evaluator::kAlpha = 0.5f;
 
 void Evaluator::Report(double* precision, double* recall, double* f_measure) {
   *precision = (est_count_ == 0) ? 0 : precision_match_accum_ / est_count_;
@@ -19,7 +19,7 @@ void Evaluator::Report(double* precision, double* recall, double* f_measure) {
   }
 }
 
-void Evaluator::RecordMatch(const list<TextLine*>& estlist,
+void Evaluator::IncRecord(const list<TextLine*>& estlist,
                             const list<TextLine*>& tgtlist) {
   for (TextLine* tl : estlist) {
     precision_match_accum_ += CalcMatch(*tl, tgtlist);

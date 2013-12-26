@@ -4,22 +4,39 @@
 #include <sstream>
 
 #include "common/core.h"
-#include "evaluate/icdar.h"
+#include "evaluate/dataset.h"
 
-class ICDAR2011 : public ICDAR {
+namespace dtxt {
+
+class ICDAR2011 : public DataSet {
  public:
   ICDAR2011(const std::string& base_dir)
-      : ICDAR(base_dir) {
+      : DataSet(base_dir) {
     test_data_dir_ = base_dir + "/test-textloc-gt/test-textloc-gt";
+    est_data_dir_ = test_data_dir_;
   }
   virtual ~ICDAR2011() {
   }
 
-  const std::list<dtxt::TextLine*>& RetrieveTList(const std::string& img_path);
+  virtual const std::string& test_data_dir() const {
+    return test_data_dir_;
+  }
+
+  virtual const std::string& est_data_dir() const {
+    return est_data_dir_;
+  }
+
+  std::list<dtxt::TextLine*>* RetrieveTgtList(const std::string& img_path);
+
+  void PostProcess(std::list<dtxt::TextLine*>** tgtlist);
 
  private:
+  std::string test_data_dir_;
+  std::string est_data_dir_;
   std::string BuildTextLineFilePath(const std::string& img_path);
 
 };
+
+}
 
 #endif

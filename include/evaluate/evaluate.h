@@ -5,11 +5,13 @@
 
 #include "common/core.h"
 
+namespace dtxt {
+
 class Evaluator {
  public:
   Evaluator()
-      : precision_match_accum_(0),
-        recall_match_accum_(0),
+      : precision_match_accum_(0.0),
+        recall_match_accum_(0.0),
         est_count_(0),
         tgt_count_(0) {
   }
@@ -17,22 +19,22 @@ class Evaluator {
   }
 
   void Clear() {
-    precision_match_accum_ = 0;
-    recall_match_accum_ = 0;
+    precision_match_accum_ = 0.0;
+    recall_match_accum_ = 0.0;
     est_count_ = 0;
     tgt_count_ = 0;
   }
 
   void Report(double* precision, double* recall, double* f_measure);
 
-  void RecordMatch(const std::list<dtxt::TextLine*>& estlist,
-                   const std::list<dtxt::TextLine*>& tgtlist);
+  void IncRecord(const std::list<dtxt::TextLine*>& estlist,
+                 const std::list<dtxt::TextLine*>& tgtlist);
 
  private:
-  static const float kAlpha;
+  static const double kAlpha;
 
-  float precision_match_accum_;
-  float recall_match_accum_;
+  double precision_match_accum_;
+  double recall_match_accum_;
   int est_count_;
   int tgt_count_;
 
@@ -42,5 +44,7 @@ class Evaluator {
                    const std::list<dtxt::TextLine*>& base_list);
 
 };
+
+}
 
 #endif

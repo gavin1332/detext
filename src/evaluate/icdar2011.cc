@@ -12,11 +12,7 @@
 using namespace std;
 using namespace dtxt;
 
-const list<TextLine*>& ICDAR2011::RetrieveTList(const string& img_path) {
-  if (T_list_map_.count(img_path) > 0) {
-    return *T_list_map_.at(img_path);
-  }
-
+list<TextLine*>* ICDAR2011::RetrieveTgtList(const string& img_path) {
   list<TextLine*>* T_list = new list<TextLine*>;
   string path = BuildTextLineFilePath(img_path);
   vector<string> piece_vec;
@@ -38,9 +34,14 @@ const list<TextLine*>& ICDAR2011::RetrieveTList(const string& img_path) {
 
     T_list->push_back(tr);
   }
-  T_list_map_[img_path] = T_list;
+  return T_list;
+}
 
-  return *T_list;
+void ICDAR2011::PostProcess(list<TextLine*>** tgtlist) {
+  for (TextLine* tl : **tgtlist) {
+    delete tl;
+  }
+  (*tgtlist)->clear();
 }
 
 string ICDAR2011::BuildTextLineFilePath(const string& img_path) {

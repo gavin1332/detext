@@ -6,23 +6,42 @@
 #include <map>
 
 #include "common/core.h"
-#include "evaluate/icdar.h"
+#include "evaluate/dataset.h"
 
-class ICDAR2005 : public ICDAR {
+namespace dtxt {
+
+class ICDAR2005 : public DataSet {
  public:
   ICDAR2005(const std::string& base_dir)
-      : ICDAR(base_dir) {
+      : DataSet(base_dir) {
     test_data_dir_ = base_dir + "/SceneTrialTest";
+    est_data_dir_ = test_data_dir_;
     InitTListMap();
   }
-  virtual ~ICDAR2005() {
+  ~ICDAR2005();
+
+  const std::string& test_data_dir() const {
+    return test_data_dir_;
   }
 
-  const std::list<dtxt::TextLine*>& RetrieveTList(const std::string& img_path);
+  const std::string& est_data_dir() const {
+    return est_data_dir_;
+  }
+
+  std::list<dtxt::TextLine*>* RetrieveTgtList(const std::string& img_path);
+
+  void PostProcess(std::list<dtxt::TextLine*>** tgtlist) {
+  }
 
  private:
+  std::string test_data_dir_;
+  std::string est_data_dir_;
+  std::map<std::string, std::list<dtxt::TextLine*>*> T_list_map_;
+
   void InitTListMap();
 
 };
 
-#endif  // EVALUATE_ICDAR_H_
+}
+
+#endif
