@@ -20,7 +20,8 @@ list<TextLine*>* ICDAR2011::RetrieveTgtList(const string& img_path) {
   string line;
   while (true) {
     getline(in, line);
-    if (line.length() == 0) break;
+    if (line.length() == 0)
+      break;
 
     piece_vec.clear();
     CmnUtils::Split(line, ',', &piece_vec);
@@ -57,4 +58,9 @@ string ICDAR2011::BuildTextLineFilePath(const string& img_path) {
   ss << test_data_dir() << "/gt_" << piece_vec[0] << ".txt";
 
   return ss.str();
+}
+
+void ICDAR2011::RetrieveImgIds(std::vector<std::string>* idlist) {
+  CmnUtils::RetrieveFilenames(test_data_dir(), ".jpg", idlist, true);
+  sort(idlist->begin(), idlist->end());
 }

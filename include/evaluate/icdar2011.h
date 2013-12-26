@@ -30,6 +30,8 @@ class ICDAR2011 : public DataSet {
 
   void PostProcess(std::list<dtxt::TextLine*>** tgtlist);
 
+  void RetrieveImgIds(std::vector<std::string>* idlist);
+
  private:
   std::string test_data_dir_;
   std::string est_data_dir_;

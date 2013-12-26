@@ -26,7 +26,7 @@ void DataSet::SaveEstResult(const std::string& id,
   writer.close();
 }
 
-void DataSet::RetrieveTextLine(const string& id, list<TextLine*>* tllist) {
+void DataSet::RetrieveTextLines(const string& id, list<TextLine*>* tllist) {
   ifstream in(est_data_dir() + "/" + id + RESULT_POSTFIX);
   if (in.fail()) {
     return;

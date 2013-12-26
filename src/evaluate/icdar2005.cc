@@ -64,3 +64,7 @@ void ICDAR2005::InitTListMap() {
     T_list_map_.insert(pair<string, list<TextLine*>*>(image_name, rect_list));
   }
 }
+
+void ICDAR2005::RetrieveImgIds(std::vector<std::string>* idlist) {
+  throw "ICDAR2005::RetrieveImgIds is unimplemented yet";
+}

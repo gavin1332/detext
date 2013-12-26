@@ -39,8 +39,10 @@ class DataSet {
   void SaveEstResult(const std::string& id,
                      const std::list<dtxt::TextLine*>& estlist);
 
-  void RetrieveTextLine(const std::string& id,
-                 std::list<dtxt::TextLine*>* tllist);
+  void RetrieveTextLines(const std::string& id,
+                         std::list<dtxt::TextLine*>* tllist);
+
+  virtual void RetrieveImgIds(std::vector<std::string>* idlist) = 0;
 
  protected:
   std::string base_dir_;

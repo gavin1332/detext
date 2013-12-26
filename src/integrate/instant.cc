@@ -54,8 +54,7 @@ void InstantProcess::Run() {
   const string& data_dir = dataset_->test_data_dir();
 
   vector<string> filename_vec;
-  CmnUtils::RetrieveFilenames(data_dir, ".jpg", &filename_vec, true);
-  sort(filename_vec.begin(), filename_vec.end());
+  dataset_->RetrieveImgIds(&filename_vec);
 
   const int total_file = filename_vec.size();
   int count = 0;
@@ -79,7 +78,7 @@ void InstantProcess::Run() {
     Mat img = imread(img_path, CV_LOAD_IMAGE_COLOR);
     if (SHOW_PRECOMPUTED_RESULT_) {
       list<TextLine*> tllist;
-      dataset_->RetrieveTextLine(filename, &tllist);
+      dataset_->RetrieveTextLines(filename, &tllist);
       bool jump = IntegrateUtils::ShowTextLines("Jump to the next? [y/n]", img,
                                                 tllist);
       IntegrateUtils::ReleaseList(&tllist);

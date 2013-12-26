@@ -19,7 +19,7 @@ void PreComputedProcess::Run() {
   CmnUtils::RetrieveFilenames(data_dir, ".jpg", &filename_vec, true);
   for (const string& filename : filename_vec) {
     list<TextLine*> estlist;
-    dataset_->RetrieveTextLine(filename, &estlist);
+    dataset_->RetrieveTextLines(filename, &estlist);
     dataset_->IncEvaluate(filename, estlist);
     IntegrateUtils::ReleaseList(&estlist);
   }
