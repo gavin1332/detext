@@ -38,7 +38,7 @@ void InstantProcess::Run() {
     PrintProgress(++count, total_file);
 
     // 145, 184, 186, 187, 188, 364, 371 and 398 is very hard
-    if (filename.compare("101.jpg") < 0) {
+    if (filename.compare("102.jpg") < 0) {
       continue;
     }
 

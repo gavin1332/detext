@@ -4,7 +4,7 @@
 #include "evaluate/icdar2011.h"
 #include "integrate/instant.h"
 #include "integrate/precomputed.h"
-#include "td/liuyi13.h"
+#include "td/liuyi14.h"
 
 using namespace std;
 using namespace cv;
@@ -13,7 +13,6 @@ using namespace dtxt;
 
 namespace dtxt {
 
-extern bool EVALUATE_PRECOMPUTED_RESULT_;
 extern bool PRINT_LOG_;
 extern bool SHOW_PRECOMPUTED_RESULT_;
 extern bool SHOW_GRAY_;
@@ -26,16 +25,15 @@ extern bool SPLIT_CHAR_LINE_;
 
 extern double THRESHOLD_;
 
-bool EVALUATE_PRECOMPUTED_RESULT_ = true;
 bool PRINT_LOG_ = true;
 bool SHOW_GRAY_ = true;
 bool SHOW_PRECOMPUTED_RESULT_ = true;
-bool SHOW_RESPONSE_ = !true;
-bool SHOW_GROUP_STEP_ = true;
-bool SHOW_GROUPED_RESULT_ = true;
-bool SHOW_FINAL_ = true;
-bool SPLIT_CHAR_LINE_ = true;
-bool SAVE_RESULT_INTERACTION_ = true;
+bool SHOW_RESPONSE_ = true;
+bool SHOW_GROUP_STEP_ = !true;
+bool SHOW_GROUPED_RESULT_ = !true;
+bool SHOW_FINAL_ = !true;
+bool SPLIT_CHAR_LINE_ = !true;
+bool SAVE_RESULT_INTERACTION_ = !true;
 
 double THRESHOLD_ = 3;
 
@@ -46,7 +44,7 @@ double THRESHOLD_ = 3;
 int main() {
   const string base_dir = "/home/liuyi/project/cpp/testdata/scene/2011";
   ICDAR2011 dataset(base_dir);
-  LiuYi13 detector;
+  LiuYi14 detector;
   InstantProcess process(&dataset, &detector);
 //  PreComputedProcess process(&dataset);
   process.Run();

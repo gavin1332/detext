@@ -49,7 +49,7 @@ class MathUtils {
   }
 
   static int CmpInAbsErr(double a, double b) {
-    if (fabs(a - b) <= DBL_EPSILON) {
+    if (fabs(a - b) <= 1e-6) {
       return 0;
     }
 

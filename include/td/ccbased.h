@@ -136,9 +136,9 @@ class ConnCompBased : public TextDetector {
   }
 
   void GroupConnComp(const cv::Mat& resp_mask, std::list<ConnComp*>* cclist,
-                     std::list<TextLine*>* trlist);
+                     std::list<TextLine*>* tllist);
 
-  void OverlapAnalyse(std::list<TextLine*>* trlist);
+  void OverlapAnalyse(std::list<TextLine*>* tllist);
 
   void SplitCharLine(std::list<TextLine*>* cllist);
 

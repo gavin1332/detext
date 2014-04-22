@@ -9,7 +9,7 @@ using namespace std;
 using namespace cv;
 using namespace dtxt;
 
-void LiuYi13::Detect(const cv::Mat& img, std::list<TextLine*>* tllist) {
+void LiuYi13::Detect(const Mat& img, list<TextLine*>* tllist) {
   extern bool SHOW_GRAY_;
   extern bool SHOW_RESPONSE_;
   extern bool SHOW_GROUPED_RESULT_;
@@ -160,8 +160,8 @@ void LiuYi13::GenRespMap(const Mat& gray, Mat* resp) {
       }
       accum_map[POS].copyTo(resp[POS], mask[POS]);
       accum_map[NEG].copyTo(resp[NEG], mask[NEG]);
-      mask[POS] &= 255 - (accum_map[NEG] > kMaskThres);
-      mask[NEG] &= 255 - (accum_map[POS] < -kMaskThres);
+      mask[POS] &= accum_map[NEG] < kMaskThres;
+      mask[NEG] &= accum_map[POS] > -kMaskThres;
       double tmax, tmin;
       Point pmax, pmin;
       minMaxLoc(dog, &tmin, &tmax, &pmin, &pmax);

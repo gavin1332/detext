@@ -16,7 +16,7 @@ class LiuYi13 : public ConnCompBased {
   virtual ~LiuYi13() {
   }
 
-  void Detect(const cv::Mat& img, std::list<TextLine*>* trlist);
+  void Detect(const cv::Mat& img, std::list<TextLine*>* tllist);
 
  private:
   void ReleaseCCList(std::list<ConnComp*>* cclist);

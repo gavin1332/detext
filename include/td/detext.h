@@ -13,12 +13,12 @@ class TextDetector {
  public:
   virtual ~TextDetector() {
   }
-  virtual void Detect(const cv::Mat& img, std::list<TextLine*>* trlist) = 0;
+  virtual void Detect(const cv::Mat& img, std::list<TextLine*>* tllist) = 0;
 
  protected:
   TextDetector() {
   }
-  void DispRects(const cv::Mat& gray, const std::list<TextLine*>& trlist,
+  void DispRects(const cv::Mat& gray, const std::list<TextLine*>& tllist,
                  cv::Scalar color = cv::Scalar(255, 255, 255));
 
  private:
